@@ -70,7 +70,14 @@ class _SelectSpheresSheetState extends State<SelectSpheresSheet> {
 
               const SizedBox(height: 20),
 
-              ...spheres.map(buildSphere),
+              Align(
+                alignment: Alignment.centerLeft,
+                child: Wrap(
+                  spacing: 10,
+                  runSpacing: 10,
+                  children: spheres.map(buildSphere).toList(),
+                ),
+              ),
 
               const SizedBox(height: 12),
 
@@ -119,73 +126,30 @@ class _SelectSpheresSheetState extends State<SelectSpheresSheet> {
   Widget buildSphere(LifeSphere sphere) {
     final selected = selectedIds.contains(sphere.id);
 
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 12),
-
-      child: InkWell(
-        borderRadius: BorderRadius.circular(18),
-
-        onTap: () {
-          setState(() {
-            if (selected) {
-              selectedIds.remove(sphere.id);
-            } else {
-              selectedIds.add(sphere.id);
-            }
-          });
-        },
-
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 180),
-
-          padding: const EdgeInsets.all(16),
-
-          decoration: BoxDecoration(
-            color: Colors.white,
-
-            borderRadius: BorderRadius.circular(18),
-
-            border: Border.all(
-              color: selected ? Color(sphere.color) : Colors.transparent,
-              width: 2,
-            ),
-          ),
-
-          child: Row(
-            children: [
-              Text(sphere.emoji, style: const TextStyle(fontSize: 24)),
-
-              const SizedBox(width: 14),
-
-              Expanded(
-                child: Text(
-                  sphere.name,
-                  style: const TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ),
-
-              AnimatedContainer(
-                duration: const Duration(milliseconds: 180),
-
-                width: 26,
-                height: 26,
-
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: selected ? Color(sphere.color) : Colors.grey.shade300,
-                ),
-
-                child: selected
-                    ? const Icon(Icons.check, size: 18, color: Colors.white)
-                    : null,
-              ),
-            ],
-          ),
-        ),
+    final color = Color(sphere.color);
+    return ChoiceChip(
+      avatar: Text(sphere.emoji),
+      label: Text(sphere.name),
+      selected: selected,
+      selectedColor: color.withValues(alpha: .18),
+      side: BorderSide(
+        color: selected ? color : Colors.transparent,
+        width: 1.5,
       ),
+      shape: const StadiumBorder(),
+      labelStyle: TextStyle(
+        color: selected ? color : const Color(0xFF16161A),
+        fontWeight: FontWeight.w700,
+      ),
+      onSelected: (_) {
+        setState(() {
+          if (selected) {
+            selectedIds.remove(sphere.id);
+          } else {
+            selectedIds.add(sphere.id);
+          }
+        });
+      },
     );
   }
 }

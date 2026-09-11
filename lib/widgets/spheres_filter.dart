@@ -39,7 +39,7 @@ class SpheresFilter extends StatelessWidget {
 
                 selected: selectedId == sphere.id,
 
-                selectedColor: Color(sphere.color).withOpacity(.15),
+                selectedColor: Color(sphere.color).withValues(alpha: .15),
 
                 onSelected: (_) {
                   if (selectedId == sphere.id) {

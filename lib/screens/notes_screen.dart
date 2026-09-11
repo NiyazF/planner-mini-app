@@ -9,6 +9,9 @@ import '../models/life_sphere.dart';
 import '../services/life_sphere_storage.dart';
 import '../widgets/spheres_filter.dart';
 import '../widgets/note_actions_sheet.dart';
+import '../models/note_folder.dart';
+import '../services/note_folder_storage.dart';
+import '../widgets/move_note_to_folder_sheet.dart';
 
 class NotesScreen extends StatefulWidget {
   const NotesScreen({super.key});
@@ -20,6 +23,7 @@ class NotesScreen extends StatefulWidget {
 class _NotesScreenState extends State<NotesScreen> {
   List<Note> notes = [];
   List<LifeSphere> spheres = [];
+  List<NoteFolder> folders = [];
   final TextEditingController searchController = TextEditingController();
   @override
   void dispose() {
@@ -32,12 +36,14 @@ class _NotesScreenState extends State<NotesScreen> {
   String search = "";
 
   String? selectedSphereId;
+  String selectedFolderId = NoteFolderStorage.allFolderId;
 
   @override
   void initState() {
     super.initState();
     loadNotes();
     loadSpheres();
+    loadFolders();
     searchController.addListener(() {
       setState(() {
         search = searchController.text.toLowerCase();
@@ -51,6 +57,17 @@ class _NotesScreenState extends State<NotesScreen> {
     if (mounted) {
       setState(() {});
     }
+  }
+
+  Future<void> loadFolders() async {
+    final loadedFolders = await NoteFolderStorage.load();
+    if (!mounted) return;
+    setState(() {
+      folders = loadedFolders;
+      if (!folders.any((folder) => folder.id == selectedFolderId)) {
+        selectedFolderId = NoteFolderStorage.allFolderId;
+      }
+    });
   }
 
   Future<void> loadNotes() async {
@@ -70,7 +87,33 @@ class _NotesScreenState extends State<NotesScreen> {
         break;
     }
 
-    setState(() {});
+    if (mounted) setState(() {});
+  }
+
+  Future<void> _moveNote(Note note) async {
+    final folder = await showModalBottomSheet<NoteFolder>(
+      context: context,
+      isScrollControlled: true,
+      showDragHandle: false,
+      builder: (_) => MoveNoteToFolderSheet(selectedFolderId: note.folderId),
+    );
+    if (folder == null) return;
+
+    final index = notes.indexWhere((item) => item.id == note.id);
+    if (index == -1) return;
+    final updated = note.copyWith(
+      folderId: folder.id,
+      updatedAt: DateTime.now(),
+    );
+    setState(() => notes[index] = updated);
+    await NoteStorage.saveNotes(notes);
+    await loadFolders();
+  }
+
+  Future<void> _deleteNote(Note note) async {
+    notes.removeWhere((item) => item.id == note.id);
+    await NoteStorage.saveNotes(notes);
+    if (mounted) setState(() {});
   }
 
   @override
@@ -78,12 +121,16 @@ class _NotesScreenState extends State<NotesScreen> {
     List<Note> filteredNotes = notes.where((note) {
       final matchSearch =
           note.title.toLowerCase().contains(search) ||
-          note.content.toLowerCase().contains(search);
+          note.plainText.toLowerCase().contains(search);
 
       final matchSphere =
           selectedSphereId == null || note.sphereIds.contains(selectedSphereId);
 
-      return matchSearch && matchSphere;
+      final matchFolder =
+          selectedFolderId == NoteFolderStorage.allFolderId ||
+          note.folderId == selectedFolderId;
+
+      return matchSearch && matchSphere && matchFolder;
     }).toList();
     return Scaffold(
       appBar: AppBar(
@@ -93,12 +140,37 @@ class _NotesScreenState extends State<NotesScreen> {
           IconButton(
             icon: const Icon(Icons.folder_copy_outlined),
 
-            onPressed: () {
-              Navigator.push(
+            onPressed: () async {
+              await Navigator.push(
                 context,
                 MaterialPageRoute(builder: (_) => const FoldersScreen()),
               );
+              loadFolders();
             },
+          ),
+          PopupMenuButton<String>(
+            tooltip: 'Выбрать группу',
+            icon: const Icon(Icons.folder_open_outlined),
+            initialValue: selectedFolderId,
+            onSelected: (id) => setState(() => selectedFolderId = id),
+            itemBuilder: (_) => folders
+                .map(
+                  (folder) => PopupMenuItem(
+                    value: folder.id,
+                    child: Row(
+                      children: [
+                        Icon(
+                          folder.id == NoteFolderStorage.allFolderId
+                              ? Icons.folder_special_outlined
+                              : Icons.folder_outlined,
+                        ),
+                        const SizedBox(width: 10),
+                        Text(folder.name),
+                      ],
+                    ),
+                  ),
+                )
+                .toList(),
           ),
           IconButton(
             icon: const Icon(Icons.sort),
@@ -195,15 +267,12 @@ class _NotesScreenState extends State<NotesScreen> {
 
                         confirmDismiss: (direction) async {
                           if (direction == DismissDirection.endToStart) {
-                            notes.removeWhere((e) => e.id == note.id);
-
-                            await NoteStorage.saveNotes(notes);
-
-                            setState(() {});
-
+                            await _deleteNote(note);
                             return true;
                           }
-
+                          if (direction == DismissDirection.startToEnd) {
+                            await _moveNote(note);
+                          }
                           return false;
                         },
 
@@ -241,10 +310,18 @@ class _NotesScreenState extends State<NotesScreen> {
 
                                 onFolder: () {
                                   Navigator.pop(context);
+                                  _moveNote(note);
                                 },
 
                                 onSphere: () {
                                   Navigator.pop(context);
+                                  Navigator.push(
+                                    context,
+                                    MaterialPageRoute(
+                                      builder: (_) =>
+                                          NoteEditorScreen(note: note),
+                                    ),
+                                  ).then((_) => loadNotes());
                                 },
 
                                 onDuplicate: () async {
@@ -267,11 +344,7 @@ class _NotesScreenState extends State<NotesScreen> {
                                 onDelete: () async {
                                   Navigator.pop(context);
 
-                                  notes.removeWhere((e) => e.id == note.id);
-
-                                  await NoteStorage.saveNotes(notes);
-
-                                  loadNotes();
+                                  await _deleteNote(note);
                                 },
                               ),
                             );

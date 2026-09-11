@@ -41,13 +41,9 @@ class _NoteCardState extends State<NoteCard> {
   Widget build(BuildContext context) {
     final note = widget.note;
 
-    LifeSphere? sphere;
-
-    if (note.sphereIds.isNotEmpty) {
-      try {
-        sphere = spheres.firstWhere((e) => e.id == note.sphereIds.first);
-      } catch (_) {}
-    }
+    final noteSpheres = spheres
+        .where((sphere) => note.sphereIds.contains(sphere.id))
+        .toList();
 
     return Card(
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
@@ -92,36 +88,36 @@ class _NoteCardState extends State<NoteCard> {
                   ),
 
                   const Spacer(),
-
-                  if (sphere != null)
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 12,
-                        vertical: 6,
-                      ),
-                      decoration: BoxDecoration(
-                        color: Color(sphere.color).withOpacity(.15),
-                        borderRadius: BorderRadius.circular(25),
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Text(sphere.emoji),
-
-                          const SizedBox(width: 6),
-
-                          Text(
-                            sphere.name,
-                            style: TextStyle(
-                              color: Color(sphere.color),
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
                 ],
               ),
+              if (noteSpheres.isNotEmpty) ...[
+                const SizedBox(height: 12),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: noteSpheres.map((sphere) {
+                    final color = Color(sphere.color);
+                    return Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 5,
+                      ),
+                      decoration: BoxDecoration(
+                        color: color.withValues(alpha: .14),
+                        borderRadius: BorderRadius.circular(99),
+                      ),
+                      child: Text(
+                        '${sphere.emoji} ${sphere.name}',
+                        style: TextStyle(
+                          color: color,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    );
+                  }).toList(),
+                ),
+              ],
             ],
           ),
         ),

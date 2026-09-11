@@ -12,8 +12,7 @@ class MoveNoteToFolderSheet extends StatefulWidget {
   const MoveNoteToFolderSheet({super.key, this.selectedFolderId});
 
   @override
-  State<MoveNoteToFolderSheet> createState() =>
-      _MoveNoteToFolderSheetState();
+  State<MoveNoteToFolderSheet> createState() => _MoveNoteToFolderSheetState();
 }
 
 class _MoveNoteToFolderSheetState extends State<MoveNoteToFolderSheet> {

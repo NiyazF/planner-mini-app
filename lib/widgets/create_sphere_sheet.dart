@@ -197,7 +197,7 @@ class _CreateSphereSheetState extends State<CreateSphereSheet> {
                 child: ListView.separated(
                   scrollDirection: Axis.horizontal,
                   itemCount: colors.length,
-                  separatorBuilder: (_, __) => const SizedBox(width: 14),
+                  separatorBuilder: (_, _) => const SizedBox(width: 14),
 
                   itemBuilder: (context, index) {
                     final c = colors[index];

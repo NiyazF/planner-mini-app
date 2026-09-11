@@ -47,7 +47,7 @@ class NoteActionsSheet extends StatelessWidget {
 
             item(Icons.edit_outlined, "Редактировать", onEdit),
 
-            item(Icons.folder_copy_outlined, "Переместить в папку", onFolder),
+            item(Icons.folder_copy_outlined, "Переместить в группу", onFolder),
 
             item(Icons.blur_circular, "Изменить сферу", onSphere),
 

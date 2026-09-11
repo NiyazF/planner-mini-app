@@ -7,13 +7,20 @@ class NoteToolbar extends StatelessWidget {
   final VoidCallback onUnderline;
   final VoidCallback onStrike;
   final VoidCallback onColor;
+  final VoidCallback onFont;
   final VoidCallback onChecklist;
   final VoidCallback onNumbers;
+
+  final VoidCallback onUndo;
+  final VoidCallback onRedo;
 
   final bool boldActive;
   final bool italicActive;
   final bool underlineActive;
   final bool strikeActive;
+
+  final bool undoAvailable;
+  final bool redoAvailable;
 
   const NoteToolbar({
     super.key,
@@ -23,12 +30,17 @@ class NoteToolbar extends StatelessWidget {
     required this.onUnderline,
     required this.onStrike,
     required this.onColor,
+    required this.onFont,
     required this.onChecklist,
     required this.onNumbers,
+    required this.onUndo,
+    required this.onRedo,
     this.boldActive = false,
     this.italicActive = false,
     this.underlineActive = false,
     this.strikeActive = false,
+    this.undoAvailable = false,
+    this.redoAvailable = false,
   });
 
   Widget _button({
@@ -36,6 +48,7 @@ class NoteToolbar extends StatelessWidget {
     required IconData icon,
     required VoidCallback onPressed,
     bool active = false,
+    bool enabled = true,
   }) {
     final theme = Theme.of(context);
 
@@ -50,17 +63,27 @@ class NoteToolbar extends StatelessWidget {
         borderRadius: BorderRadius.circular(13),
       ),
       child: IconButton(
-        onPressed: onPressed,
+        onPressed: enabled ? onPressed : null,
         tooltip: null,
         splashRadius: 22,
         icon: Icon(
           icon,
           size: 21,
-          color: active
-              ? theme.colorScheme.primary
-              : theme.colorScheme.onSurfaceVariant,
+          color: enabled
+              ? (active
+                    ? theme.colorScheme.primary
+                    : theme.colorScheme.onSurfaceVariant)
+              : theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.30),
         ),
       ),
+    );
+  }
+
+  Widget _divider(BuildContext context) {
+    return Container(
+      width: 1,
+      height: 25,
+      color: Theme.of(context).colorScheme.outline.withValues(alpha: 0.15),
     );
   }
 
@@ -86,24 +109,46 @@ class NoteToolbar extends StatelessWidget {
             scrollDirection: Axis.horizontal,
             child: Row(
               children: [
+                // Undo
                 _button(
                   context: context,
-                  icon: Icons.blur_circular_outlined,
+                  icon: Icons.undo_rounded,
+                  onPressed: onUndo,
+                  enabled: undoAvailable,
+                ),
+
+                // Redo
+                _button(
+                  context: context,
+                  icon: Icons.redo_rounded,
+                  onPressed: onRedo,
+                  enabled: redoAvailable,
+                ),
+
+                const SizedBox(width: 4),
+
+                _divider(context),
+
+                const SizedBox(width: 4),
+
+                OutlinedButton.icon(
                   onPressed: onSphere,
+                  icon: const Icon(Icons.blur_circular_outlined, size: 19),
+                  label: const Text('Сфера'),
+                  style: OutlinedButton.styleFrom(
+                    shape: const StadiumBorder(),
+                    padding: const EdgeInsets.symmetric(horizontal: 12),
+                    minimumSize: const Size(0, 44),
+                  ),
                 ),
 
                 const SizedBox(width: 4),
 
-                Container(
-                  width: 1,
-                  height: 25,
-                  color: Theme.of(
-                    context,
-                  ).colorScheme.outline.withValues(alpha: 0.15),
-                ),
+                _divider(context),
 
                 const SizedBox(width: 4),
 
+                // Formatting
                 _button(
                   context: context,
                   icon: Icons.format_bold,
@@ -134,16 +179,11 @@ class NoteToolbar extends StatelessWidget {
 
                 const SizedBox(width: 4),
 
-                Container(
-                  width: 1,
-                  height: 25,
-                  color: Theme.of(
-                    context,
-                  ).colorScheme.outline.withValues(alpha: 0.15),
-                ),
+                _divider(context),
 
                 const SizedBox(width: 4),
 
+                // Lists
                 _button(
                   context: context,
                   icon: Icons.checklist_rounded,
@@ -156,6 +196,13 @@ class NoteToolbar extends StatelessWidget {
                   onPressed: onNumbers,
                 ),
 
+                _button(
+                  context: context,
+                  icon: Icons.text_fields_rounded,
+                  onPressed: onFont,
+                ),
+
+                // Color
                 _button(
                   context: context,
                   icon: Icons.palette_outlined,
