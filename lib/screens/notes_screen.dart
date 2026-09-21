@@ -137,40 +137,50 @@ class _NotesScreenState extends State<NotesScreen> {
         title: const Text("Заметки"),
 
         actions: [
-          IconButton(
-            icon: const Icon(Icons.folder_copy_outlined),
-
-            onPressed: () async {
-              await Navigator.push(
-                context,
-                MaterialPageRoute(builder: (_) => const FoldersScreen()),
-              );
-              loadFolders();
-            },
-          ),
           PopupMenuButton<String>(
             tooltip: 'Выбрать группу',
             icon: const Icon(Icons.folder_open_outlined),
             initialValue: selectedFolderId,
-            onSelected: (id) => setState(() => selectedFolderId = id),
-            itemBuilder: (_) => folders
-                .map(
-                  (folder) => PopupMenuItem(
-                    value: folder.id,
-                    child: Row(
-                      children: [
-                        Icon(
-                          folder.id == NoteFolderStorage.allFolderId
-                              ? Icons.folder_special_outlined
-                              : Icons.folder_outlined,
-                        ),
-                        const SizedBox(width: 10),
-                        Text(folder.name),
-                      ],
-                    ),
+            onSelected: (id) async {
+              if (id == 'manage_folders') {
+                await Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const FoldersScreen()),
+                );
+                loadFolders();
+              } else {
+                setState(() => selectedFolderId = id);
+              }
+            },
+            itemBuilder: (_) => [
+              ...folders.map(
+                (folder) => PopupMenuItem<String>(
+                  value: folder.id,
+                  child: Row(
+                    children: [
+                      Icon(
+                        folder.id == NoteFolderStorage.allFolderId
+                            ? Icons.folder_special_outlined
+                            : Icons.folder_outlined,
+                      ),
+                      const SizedBox(width: 10),
+                      Text(folder.name),
+                    ],
                   ),
-                )
-                .toList(),
+                ),
+              ),
+              const PopupMenuDivider(),
+              const PopupMenuItem<String>(
+                value: 'manage_folders',
+                child: Row(
+                  children: [
+                    Icon(Icons.edit_outlined),
+                    SizedBox(width: 10),
+                    Text('Управление группами'),
+                  ],
+                ),
+              ),
+            ],
           ),
           IconButton(
             icon: const Icon(Icons.sort),

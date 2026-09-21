@@ -798,6 +798,7 @@ class _NoteEditorScreenState extends State<NoteEditorScreen> {
           border: InputBorder.none,
           isDense: true,
           contentPadding: const EdgeInsets.symmetric(vertical: 6),
+          filled: false,
         ),
         onTap: () {
           activeBlockIndex = index;
@@ -880,72 +881,88 @@ class _NoteEditorScreenState extends State<NoteEditorScreen> {
     final activeBlock = blocks.isEmpty ? null : blocks[activeBlockIndex];
 
     return Scaffold(
+      backgroundColor: Colors.white,
       appBar: AppBar(
-        title: const Text("Заметка"),
+        backgroundColor: Colors.white,
+        surfaceTintColor: Colors.transparent,
+        elevation: 0,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back_ios_new_rounded),
+          onPressed: saveNote,
+        ),
         actions: [
           IconButton(
             tooltip: "Отменить",
             onPressed: _undoStack.isEmpty ? null : _undo,
             icon: const Icon(Icons.undo_rounded),
           ),
-
-          const SizedBox(width: 4),
-
-          FilledButton(onPressed: saveNote, child: const Text("Готово")),
-
-          const SizedBox(width: 12),
+          TextButton(
+            onPressed: saveNote,
+            child: const Text(
+              "Готово",
+              style: TextStyle(fontSize: 17, fontWeight: FontWeight.w600),
+            ),
+          ),
+          const SizedBox(width: 8),
         ],
       ),
 
-      body: Padding(
-        padding: const EdgeInsets.fromLTRB(22, 8, 22, 8),
-        child: Column(
-          children: [
-            TextField(
-              controller: titleController,
-              style: const TextStyle(
-                fontSize: 30,
-                fontWeight: FontWeight.w700,
-                letterSpacing: -0.6,
-              ),
-              decoration: const InputDecoration(
-                hintText: "Название",
-                border: InputBorder.none,
+      body: Column(
+        children: [
+          Expanded(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 20),
+              child: Column(
+                children: [
+                  TextField(
+                    controller: titleController,
+                    style: const TextStyle(
+                      fontSize: 28,
+                      fontWeight: FontWeight.bold,
+                      letterSpacing: -0.5,
+                    ),
+                    decoration: const InputDecoration(
+                      hintText: "Название",
+                      border: InputBorder.none,
+                      filled: false,
+                      contentPadding: EdgeInsets.symmetric(vertical: 8),
+                    ),
+                  ),
+                  Expanded(
+                    child: ListView.builder(
+                      padding: const EdgeInsets.only(bottom: 20),
+                      itemCount: blocks.length,
+                      itemBuilder: (context, index) {
+                        return _buildBlock(context, blocks[index], index);
+                      },
+                    ),
+                  ),
+                ],
               ),
             ),
+          ),
 
-            Expanded(
-              child: ListView.builder(
-                padding: const EdgeInsets.only(bottom: 20),
-                itemCount: blocks.length,
-                itemBuilder: (context, index) {
-                  return _buildBlock(context, blocks[index], index);
-                },
-              ),
-            ),
-          ],
-        ),
-      ),
+          NoteToolbar(
+            onSphere: selectSpheres,
+            onBold: toggleBold,
+            onItalic: toggleItalic,
+            onUnderline: toggleUnderline,
+            onStrike: toggleStrike,
+            onChecklist: setChecklist,
+            onNumbers: setNumbered,
+            onColor: selectColor,
+            onFont: selectFont,
+            onUndo: _undo,
+            onRedo: _redo,
 
-      bottomNavigationBar: NoteToolbar(
-        onSphere: selectSpheres,
-        onBold: toggleBold,
-        onItalic: toggleItalic,
-        onUnderline: toggleUnderline,
-        onStrike: toggleStrike,
-        onChecklist: setChecklist,
-        onNumbers: setNumbered,
-        onColor: selectColor,
-        onFont: selectFont,
-        onUndo: _undo,
-        onRedo: _redo,
-
-        boldActive: activeBlock?.isBold ?? false,
-        italicActive: activeBlock?.isItalic ?? false,
-        underlineActive: activeBlock?.isUnderlined ?? false,
-        strikeActive: activeBlock?.isStruckThrough ?? false,
-        undoAvailable: _undoStack.isNotEmpty,
-        redoAvailable: _redoStack.isNotEmpty,
+            boldActive: activeBlock?.isBold ?? false,
+            italicActive: activeBlock?.isItalic ?? false,
+            underlineActive: activeBlock?.isUnderlined ?? false,
+            strikeActive: activeBlock?.isStruckThrough ?? false,
+            undoAvailable: _undoStack.isNotEmpty,
+            redoAvailable: _redoStack.isNotEmpty,
+          ),
+        ],
       ),
     );
   }

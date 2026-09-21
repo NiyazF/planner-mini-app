@@ -31,6 +31,7 @@ class MyApp extends StatelessWidget {
 
       theme: ThemeData(
         useMaterial3: true,
+        fontFamily: 'SF Pro',
         colorScheme: ColorScheme.fromSeed(seedColor: const Color(0xFF5856D6)),
         scaffoldBackgroundColor: const Color(0xFFF7F7FB),
         appBarTheme: const AppBarTheme(
