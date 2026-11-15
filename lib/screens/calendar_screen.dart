@@ -6,6 +6,7 @@ import '../models/task_category.dart';
 import '../services/storage_service.dart';
 import '../widgets/add_task_sheet.dart';
 import '../widgets/task_list.dart';
+import '../services/telegram_reminder_service.dart';
 
 class CalendarScreen extends StatefulWidget {
   const CalendarScreen({super.key});
@@ -75,6 +76,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
             _tasks.putIfAbsent(key, () => []).add(task);
           });
           _saveTasks();
+          TelegramReminderService.scheduleTaskReminder(task);
         },
       ),
     );
@@ -225,11 +227,15 @@ class _CalendarScreenState extends State<CalendarScreen> {
                       tasks: dayTasks,
                       categoryColor: _categoryColor,
                       onDelete: (index) {
+                        final removedTask = dayTasks[index];
                         setState(() {
                           dayTasks.removeAt(index);
                           if (dayTasks.isEmpty) _tasks.remove(key);
                         });
                         _saveTasks();
+                        TelegramReminderService.cancelTaskReminder(
+                          removedTask.id,
+                        );
                       },
                       onChanged: (index, value) {
                         setState(

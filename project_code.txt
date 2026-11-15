@@ -1,0 +1,5106 @@
+﻿=== FILE: C:\Users\HONOR\calendar_app\lib\main.dart ===
+// ignore_for_file: depend_on_referenced_packages
+
+import 'package:flutter/material.dart';
+import 'package:intl/date_symbol_data_local.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
+import 'screens/home_screen.dart';
+
+Future<void> main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  await initializeDateFormatting('ru_RU', null);
+  runApp(const MyApp());
+}
+
+class MyApp extends StatelessWidget {
+  const MyApp({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return MaterialApp(
+      debugShowCheckedModeBanner: false,
+
+      locale: const Locale('ru'),
+
+      supportedLocales: const [Locale('ru'), Locale('en')],
+
+      localizationsDelegates: const [
+        GlobalMaterialLocalizations.delegate,
+        GlobalWidgetsLocalizations.delegate,
+        GlobalCupertinoLocalizations.delegate,
+      ],
+
+      theme: ThemeData(
+        useMaterial3: true,
+        fontFamily: 'SF Pro',
+        colorScheme: ColorScheme.fromSeed(seedColor: const Color(0xFF5856D6)),
+        scaffoldBackgroundColor: const Color(0xFFF7F7FB),
+        appBarTheme: const AppBarTheme(
+          centerTitle: false,
+          backgroundColor: Color(0xFFF7F7FB),
+          surfaceTintColor: Colors.transparent,
+          titleTextStyle: TextStyle(
+            color: Color(0xFF16161A),
+            fontSize: 30,
+            fontWeight: FontWeight.w800,
+          ),
+        ),
+        cardTheme: CardThemeData(
+          elevation: 0,
+          color: Colors.white,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(18),
+          ),
+        ),
+        inputDecorationTheme: InputDecorationTheme(
+          filled: true,
+          fillColor: Colors.white,
+          border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(14),
+            borderSide: BorderSide.none,
+          ),
+        ),
+      ),
+
+      home: const HomeScreen(),
+    );
+  }
+}
+=== FILE: C:\Users\HONOR\calendar_app\lib\models\life_sphere.dart ===
+class LifeSphere {
+  String id;
+  String name;
+  String emoji;
+  int color;
+
+  LifeSphere({
+    required this.id,
+    required this.name,
+    required this.emoji,
+    required this.color,
+  });
+
+  factory LifeSphere.fromJson(Map<String, dynamic> json) {
+    return LifeSphere(
+      id: json["id"],
+      name: json["name"],
+      emoji: json["emoji"],
+      color: json["color"],
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {"id": id, "name": name, "emoji": emoji, "color": color};
+  }
+}
+=== FILE: C:\Users\HONOR\calendar_app\lib\models\note.dart ===
+import 'note_block.dart';
+
+class Note {
+  String id;
+
+  String title;
+
+  String content;
+
+  DateTime createdAt;
+
+  DateTime updatedAt;
+
+  String folderId;
+
+  List<String> sphereIds;
+
+  List<NoteBlock> blocks;
+
+  Note({
+    required this.id,
+    required this.title,
+    required this.content,
+    required this.createdAt,
+    required this.updatedAt,
+    this.folderId = "all",
+    this.sphereIds = const [],
+    this.blocks = const [],
+  });
+
+  factory Note.fromJson(Map<String, dynamic> json) {
+    return Note(
+      id: json["id"] as String,
+      title: json["title"] as String? ?? "",
+      content: json["content"] as String? ?? "",
+      createdAt: DateTime.parse(json["createdAt"] as String),
+      updatedAt: DateTime.parse(json["updatedAt"] as String),
+      folderId: json["folderId"] ?? "all",
+      sphereIds: List<String>.from(json["sphereIds"] ?? []),
+      blocks: (json["blocks"] as List<dynamic>? ?? const [])
+          .map(
+            (item) =>
+                NoteBlock.fromJson(Map<String, dynamic>.from(item as Map)),
+          )
+          .toList(),
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      "id": id,
+      "title": title,
+      "content": content,
+      "createdAt": createdAt.toIso8601String(),
+      "updatedAt": updatedAt.toIso8601String(),
+      "folderId": folderId,
+      "sphereIds": sphereIds,
+      "blocks": blocks.map((block) => block.toJson()).toList(),
+    };
+  }
+
+  String get plainText {
+    if (blocks.isEmpty) return content;
+    return blocks.map((block) => block.text).join('\n');
+  }
+
+  Note copyWith({
+    String? id,
+    String? title,
+    String? content,
+    DateTime? createdAt,
+    DateTime? updatedAt,
+    String? folderId,
+    List<String>? sphereIds,
+    List<NoteBlock>? blocks,
+  }) {
+    return Note(
+      id: id ?? this.id,
+      title: title ?? this.title,
+      content: content ?? this.content,
+      createdAt: createdAt ?? this.createdAt,
+      updatedAt: updatedAt ?? this.updatedAt,
+      folderId: folderId ?? this.folderId,
+      sphereIds: sphereIds ?? List<String>.from(this.sphereIds),
+      blocks: blocks ?? List<NoteBlock>.from(this.blocks),
+    );
+  }
+}
+=== FILE: C:\Users\HONOR\calendar_app\lib\models\note_block.dart ===
+enum NoteBlockType {
+  paragraph,
+  heading1,
+  heading2,
+  checklist,
+  numbered,
+  quote,
+  code,
+  divider,
+  image,
+  table,
+  drawing,
+  audio,
+}
+
+NoteBlockType noteBlockTypeFromStorage(String? value) {
+  return NoteBlockType.values.firstWhere(
+    (type) => type.name == value,
+    orElse: () => NoteBlockType.paragraph,
+  );
+}
+
+class NoteBlock {
+  String id;
+  String text;
+  NoteBlockType type;
+
+  bool isBold;
+  bool isItalic;
+  bool isUnderlined;
+  bool isStruckThrough;
+  bool isChecked;
+
+  int colorValue;
+  double fontSize;
+  String fontFamily;
+
+  NoteBlock({
+    required this.id,
+    this.text = '',
+    this.type = NoteBlockType.paragraph,
+    this.isBold = false,
+    this.isItalic = false,
+    this.isUnderlined = false,
+    this.isStruckThrough = false,
+    this.isChecked = false,
+    this.colorValue = 0xFF16161A,
+    this.fontSize = 18,
+    this.fontFamily = 'sans',
+  });
+
+  factory NoteBlock.fromJson(Map<String, dynamic> json) {
+    return NoteBlock(
+      id: json['id'] as String? ?? '',
+      text: json['text'] as String? ?? '',
+      type: noteBlockTypeFromStorage(json['type'] as String?),
+      isBold: json['isBold'] as bool? ?? false,
+      isItalic: json['isItalic'] as bool? ?? false,
+      isUnderlined: json['isUnderlined'] as bool? ?? false,
+      isStruckThrough: json['isStruckThrough'] as bool? ?? false,
+      isChecked: json['isChecked'] as bool? ?? false,
+      colorValue: json['colorValue'] as int? ?? 0xFF16161A,
+      fontSize: (json['fontSize'] as num?)?.toDouble() ?? 18,
+      fontFamily: json['fontFamily'] as String? ?? 'sans',
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'id': id,
+      'text': text,
+      'type': type.name,
+      'isBold': isBold,
+      'isItalic': isItalic,
+      'isUnderlined': isUnderlined,
+      'isStruckThrough': isStruckThrough,
+      'isChecked': isChecked,
+      'colorValue': colorValue,
+      'fontSize': fontSize,
+      'fontFamily': fontFamily,
+    };
+  }
+
+  NoteBlock copyWith({
+    String? id,
+    String? text,
+    NoteBlockType? type,
+    bool? isBold,
+    bool? isItalic,
+    bool? isUnderlined,
+    bool? isStruckThrough,
+    bool? isChecked,
+    int? colorValue,
+    double? fontSize,
+    String? fontFamily,
+  }) {
+    return NoteBlock(
+      id: id ?? this.id,
+      text: text ?? this.text,
+      type: type ?? this.type,
+      isBold: isBold ?? this.isBold,
+      isItalic: isItalic ?? this.isItalic,
+      isUnderlined: isUnderlined ?? this.isUnderlined,
+      isStruckThrough: isStruckThrough ?? this.isStruckThrough,
+      isChecked: isChecked ?? this.isChecked,
+      colorValue: colorValue ?? this.colorValue,
+      fontSize: fontSize ?? this.fontSize,
+      fontFamily: fontFamily ?? this.fontFamily,
+    );
+  }
+}
+=== FILE: C:\Users\HONOR\calendar_app\lib\models\note_folder.dart ===
+class NoteFolder {
+  final String id;
+
+  String name;
+
+  NoteFolder({required this.id, required this.name});
+
+  factory NoteFolder.fromJson(Map<String, dynamic> json) {
+    return NoteFolder(id: json["id"], name: json["name"]);
+  }
+
+  Map<String, dynamic> toJson() {
+    return {"id": id, "name": name};
+  }
+}
+=== FILE: C:\Users\HONOR\calendar_app\lib\models\task.dart ===
+class Task {
+  String title;
+  String description;
+  bool isCompleted;
+  DateTime? date;
+  String? time;
+  int priority;
+  String category;
+  bool reminder;
+
+  Task({
+    required this.title,
+    this.description = '',
+    this.isCompleted = false,
+    this.date,
+    this.time,
+    this.priority = 1,
+    this.category = 'Р›РёС‡РЅРѕРµ',
+    this.reminder = false,
+  });
+
+  factory Task.fromJson(Map<String, dynamic> json) => Task(
+    title: json['title'] as String,
+    description: json['description'] as String? ?? '',
+    isCompleted: json['isCompleted'] as bool? ?? false,
+    date: json['date'] == null ? null : DateTime.parse(json['date'] as String),
+    time: json['time'] as String?,
+    priority: json['priority'] as int? ?? 1,
+    category: json['category'] as String? ?? 'Р›РёС‡РЅРѕРµ',
+    reminder: json['reminder'] as bool? ?? false,
+  );
+
+  Map<String, dynamic> toJson() => {
+    'title': title,
+    'description': description,
+    'isCompleted': isCompleted,
+    'date': date?.toIso8601String(),
+    'time': time,
+    'priority': priority,
+    'category': category,
+    'reminder': reminder,
+  };
+}
+=== FILE: C:\Users\HONOR\calendar_app\lib\models\task_category.dart ===
+import 'package:flutter/material.dart';
+
+class TaskCategory {
+  final String name;
+  final int colorValue;
+
+  const TaskCategory({required this.name, required this.colorValue});
+
+  Color get color => Color(colorValue);
+
+  factory TaskCategory.fromJson(Map<String, dynamic> json) => TaskCategory(
+    name: json['name'] as String,
+    colorValue: json['color'] as int,
+  );
+
+  Map<String, dynamic> toJson() => {'name': name, 'color': colorValue};
+}
+=== FILE: C:\Users\HONOR\calendar_app\lib\screens\calendar_screen.dart ===
+import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
+import 'package:table_calendar/table_calendar.dart';
+import '../models/task.dart';
+import '../models/task_category.dart';
+import '../services/storage_service.dart';
+import '../widgets/add_task_sheet.dart';
+import '../widgets/task_list.dart';
+
+class CalendarScreen extends StatefulWidget {
+  const CalendarScreen({super.key});
+
+  @override
+  State<CalendarScreen> createState() => _CalendarScreenState();
+}
+
+class _CalendarScreenState extends State<CalendarScreen> {
+  DateTime _selectedDay = DateTime.now();
+  DateTime _focusedDay = DateTime.now();
+  Map<String, List<Task>> _tasks = {};
+  List<TaskCategory> _categories = StorageService.defaultCategories;
+  bool _notificationsEnabled = true;
+  bool _loading = true;
+
+  String _dateKey(DateTime date) => '${date.year}-${date.month}-${date.day}';
+
+  @override
+  void initState() {
+    super.initState();
+    _loadData();
+  }
+
+  Future<void> _loadData() async {
+    final values = await Future.wait<dynamic>([
+      StorageService.loadTasks(),
+      StorageService.loadCategories(),
+      StorageService.loadNotificationsEnabled(),
+    ]);
+    if (!mounted) return;
+    setState(() {
+      _tasks = values[0] as Map<String, List<Task>>;
+      _categories = values[1] as List<TaskCategory>;
+      _notificationsEnabled = values[2] as bool;
+      _loading = false;
+    });
+  }
+
+  Future<void> _saveTasks() => StorageService.saveTasks(_tasks);
+
+  Color _categoryColor(String name) {
+    for (final category in _categories) {
+      if (category.name == name) return category.color;
+    }
+    return Colors.indigo;
+  }
+
+  void _addTask() {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+      ),
+      builder: (_) => AddTaskSheet(
+        initialDate: _selectedDay,
+        categories: _categories,
+        notificationsEnabled: _notificationsEnabled,
+        onCategoriesChanged: (categories) {
+          setState(() => _categories = categories);
+          StorageService.saveCategories(categories);
+        },
+        onSave: (task) {
+          setState(() {
+            final key = _dateKey(task.date!);
+            _tasks.putIfAbsent(key, () => []).add(task);
+          });
+          _saveTasks();
+        },
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final key = _dateKey(_selectedDay);
+    final dayTasks = _tasks[key] ?? [];
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('РљР°Р»РµРЅРґР°СЂСЊ'),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.today_outlined),
+            tooltip: 'РЎРµРіРѕРґРЅСЏ',
+            onPressed: () => setState(() {
+              _selectedDay = DateTime.now();
+              _focusedDay = DateTime.now();
+            }),
+          ),
+        ],
+      ),
+      body: _loading
+          ? const Center(child: CircularProgressIndicator())
+          : CustomScrollView(
+              slivers: [
+                SliverToBoxAdapter(
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
+                    child: TableCalendar<Task>(
+                      firstDay: DateTime.utc(2020),
+                      lastDay: DateTime.utc(2100),
+                      focusedDay: _focusedDay,
+                      locale: 'ru_RU',
+                      startingDayOfWeek: StartingDayOfWeek.monday,
+                      headerStyle: const HeaderStyle(
+                        titleCentered: false,
+                        formatButtonVisible: false,
+                        titleTextStyle: TextStyle(
+                          fontSize: 20,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                      calendarStyle: CalendarStyle(
+                        todayDecoration: BoxDecoration(
+                          color: Theme.of(
+                            context,
+                          ).colorScheme.primary.withValues(alpha: .22),
+                          shape: BoxShape.circle,
+                        ),
+                        selectedDecoration: BoxDecoration(
+                          color: Theme.of(context).colorScheme.primary,
+                          shape: BoxShape.circle,
+                        ),
+                        markersMaxCount: 3,
+                      ),
+                      selectedDayPredicate: (day) =>
+                          isSameDay(_selectedDay, day),
+                      onDaySelected: (selected, focused) => setState(() {
+                        _selectedDay = selected;
+                        _focusedDay = focused;
+                      }),
+                      eventLoader: (day) => _tasks[_dateKey(day)] ?? [],
+                      calendarBuilders: CalendarBuilders<Task>(
+                        markerBuilder: (_, day, events) {
+                          final tasks = _tasks[_dateKey(day)];
+                          if (tasks == null || tasks.isEmpty) return null;
+                          return Positioned(
+                            bottom: 3,
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: events
+                                  .take(3)
+                                  .map(
+                                    (task) => Container(
+                                      width: 5,
+                                      height: 5,
+                                      margin: const EdgeInsets.symmetric(
+                                        horizontal: 1.5,
+                                      ),
+                                      decoration: BoxDecoration(
+                                        shape: BoxShape.circle,
+                                        color: _categoryColor(task.category),
+                                      ),
+                                    ),
+                                  )
+                                  .toList(),
+                            ),
+                          );
+                        },
+                      ),
+                    ),
+                  ),
+                ),
+                SliverToBoxAdapter(
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(24, 12, 24, 8),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                DateFormat(
+                                  'd MMMM',
+                                  'ru_RU',
+                                ).format(_selectedDay),
+                                style: const TextStyle(
+                                  fontSize: 28,
+                                  fontWeight: FontWeight.w800,
+                                ),
+                              ),
+                              Text(
+                                dayTasks.isEmpty
+                                    ? 'РќРµС‚ Р·Р°РїР»Р°РЅРёСЂРѕРІР°РЅРЅС‹С… Р·Р°РґР°С‡'
+                                    : '${dayTasks.length} ${_taskWord(dayTasks.length)}',
+                                style: TextStyle(
+                                  color: Theme.of(
+                                    context,
+                                  ).colorScheme.onSurfaceVariant,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        IconButton(
+                          onPressed: _showSettings,
+                          icon: const Icon(Icons.tune),
+                          tooltip: 'РќР°СЃС‚СЂРѕР№РєРё',
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                if (dayTasks.isEmpty)
+                  const SliverFillRemaining(
+                    hasScrollBody: false,
+                    child: Center(
+                      child: Text('Р”РѕР±Р°РІСЊС‚Рµ РїРµСЂРІСѓСЋ Р·Р°РґР°С‡Сѓ РЅР° СЌС‚РѕС‚ РґРµРЅСЊ'),
+                    ),
+                  )
+                else
+                  SliverPadding(
+                    padding: const EdgeInsets.fromLTRB(16, 4, 16, 100),
+                    sliver: TaskList(
+                      tasks: dayTasks,
+                      categoryColor: _categoryColor,
+                      onDelete: (index) {
+                        setState(() {
+                          dayTasks.removeAt(index);
+                          if (dayTasks.isEmpty) _tasks.remove(key);
+                        });
+                        _saveTasks();
+                      },
+                      onChanged: (index, value) {
+                        setState(
+                          () => dayTasks[index].isCompleted = value ?? false,
+                        );
+                        _saveTasks();
+                      },
+                    ),
+                  ),
+              ],
+            ),
+      floatingActionButton: FloatingActionButton.extended(
+        onPressed: _addTask,
+        icon: const Icon(Icons.add),
+        label: const Text('Р—Р°РґР°С‡Р°'),
+      ),
+    );
+  }
+
+  String _taskWord(int count) =>
+      count == 1 ? 'Р·Р°РґР°С‡Р°' : (count >= 2 && count <= 4 ? 'Р·Р°РґР°С‡Рё' : 'Р·Р°РґР°С‡');
+
+  void _showSettings() {
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+      ),
+      builder: (context) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Text(
+                'РќР°СЃС‚СЂРѕР№РєРё',
+                style: TextStyle(fontSize: 21, fontWeight: FontWeight.w700),
+              ),
+              SwitchListTile.adaptive(
+                title: const Text('РќР°РїРѕРјРёРЅР°РЅРёСЏ'),
+                subtitle: const Text('Р Р°Р·СЂРµС€РёС‚СЊ РЅР°РїРѕРјРёРЅР°РЅРёСЏ Рѕ Р·Р°РґР°С‡Р°С…'),
+                value: _notificationsEnabled,
+                onChanged: (value) {
+                  setState(() => _notificationsEnabled = value);
+                  StorageService.saveNotificationsEnabled(value);
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.palette_outlined),
+                title: const Text('РљР°С‚РµРіРѕСЂРёРё'),
+                subtitle: Text('${_categories.length} РєР°С‚РµРіРѕСЂРёР№'),
+                onTap: () {
+                  Navigator.pop(context);
+                  _addTask();
+                },
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+=== FILE: C:\Users\HONOR\calendar_app\lib\screens\folders_screen.dart ===
+import 'package:flutter/material.dart';
+
+import '../models/note_folder.dart';
+import '../services/note_folder_storage.dart';
+
+class FoldersScreen extends StatefulWidget {
+  const FoldersScreen({super.key});
+
+  @override
+  State<FoldersScreen> createState() => _FoldersScreenState();
+}
+
+class _FoldersScreenState extends State<FoldersScreen> {
+  List<NoteFolder> _folders = [];
+  bool _loading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadFolders();
+  }
+
+  Future<void> _loadFolders() async {
+    final folders = await NoteFolderStorage.load();
+    if (!mounted) return;
+    setState(() {
+      _folders = folders;
+      _loading = false;
+    });
+  }
+
+  Future<void> _createFolder() async {
+    final controller = TextEditingController();
+    final name = await showDialog<String>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('РќРѕРІР°СЏ РіСЂСѓРїРїР°'),
+        content: TextField(
+          controller: controller,
+          autofocus: true,
+          textCapitalization: TextCapitalization.sentences,
+          textInputAction: TextInputAction.done,
+          onSubmitted: (value) => Navigator.pop(dialogContext, value),
+          decoration: const InputDecoration(hintText: 'РќР°РїСЂРёРјРµСЂ, Р Р°Р±РѕС‚Р°'),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext),
+            child: const Text('РћС‚РјРµРЅР°'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(dialogContext, controller.text),
+            child: const Text('РЎРѕР·РґР°С‚СЊ'),
+          ),
+        ],
+      ),
+    );
+    controller.dispose();
+    final trimmedName = name?.trim() ?? '';
+    if (trimmedName.isEmpty) return;
+
+    if (_folders.any(
+      (folder) => folder.name.toLowerCase() == trimmedName.toLowerCase(),
+    )) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('РўР°РєР°СЏ РіСЂСѓРїРїР° СѓР¶Рµ РµСЃС‚СЊ')));
+      }
+      return;
+    }
+
+    final folder = NoteFolder(
+      id: 'folder_${DateTime.now().microsecondsSinceEpoch}',
+      name: trimmedName,
+    );
+    final updated = [..._folders, folder];
+    await NoteFolderStorage.save(updated);
+    if (!mounted) return;
+    setState(() => _folders = updated);
+  }
+
+  Future<void> _deleteFolder(NoteFolder folder) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('РЈРґР°Р»РёС‚СЊ РіСЂСѓРїРїСѓ?'),
+        content: Text('Р—Р°РјРµС‚РєРё РёР· В«${folder.name}В» РѕСЃС‚Р°РЅСѓС‚СЃСЏ РІ СЂР°Р·РґРµР»Рµ В«Р’СЃРµВ».'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: const Text('РћС‚РјРµРЅР°'),
+          ),
+          FilledButton.tonal(
+            onPressed: () => Navigator.pop(dialogContext, true),
+            child: const Text('РЈРґР°Р»РёС‚СЊ'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+    final updated = _folders.where((item) => item.id != folder.id).toList();
+    await NoteFolderStorage.save(updated);
+    if (!mounted) return;
+    setState(() => _folders = updated);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: const Text('Р“СЂСѓРїРїС‹ Р·Р°РјРµС‚РѕРє')),
+      floatingActionButton: FloatingActionButton.extended(
+        onPressed: _createFolder,
+        icon: const Icon(Icons.create_new_folder_outlined),
+        label: const Text('Р“СЂСѓРїРїР°'),
+      ),
+      body: _loading
+          ? const Center(child: CircularProgressIndicator())
+          : ListView.separated(
+              padding: const EdgeInsets.fromLTRB(16, 12, 16, 100),
+              itemCount: _folders.length,
+              separatorBuilder: (_, _) => const SizedBox(height: 8),
+              itemBuilder: (context, index) {
+                final folder = _folders[index];
+                final isAll = folder.id == NoteFolderStorage.allFolderId;
+                return Card(
+                  margin: EdgeInsets.zero,
+                  child: ListTile(
+                    leading: Icon(
+                      isAll
+                          ? Icons.folder_special_outlined
+                          : Icons.folder_outlined,
+                    ),
+                    title: Text(
+                      folder.name,
+                      style: const TextStyle(fontWeight: FontWeight.w700),
+                    ),
+                    subtitle: isAll ? const Text('Р’СЃРµ Р·Р°РјРµС‚РєРё') : null,
+                    trailing: isAll
+                        ? null
+                        : IconButton(
+                            tooltip: 'РЈРґР°Р»РёС‚СЊ РіСЂСѓРїРїСѓ',
+                            icon: const Icon(Icons.delete_outline),
+                            onPressed: () => _deleteFolder(folder),
+                          ),
+                  ),
+                );
+              },
+            ),
+    );
+  }
+}
+=== FILE: C:\Users\HONOR\calendar_app\lib\screens\home_screen.dart ===
+import 'package:flutter/material.dart';
+import 'calendar_screen.dart';
+import 'notes_screen.dart';
+import 'supplement_tracker_button.dart';
+
+void openSupplementTracker(BuildContext context) {
+  showModalBottomSheet(
+    context: context,
+    isScrollControlled: true,
+    backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+    shape: const RoundedRectangleBorder(
+      borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+    ),
+    builder: (context) => const SupplementTrackerSheet(),
+  );
+}
+
+class HomeScreen extends StatefulWidget {
+  const HomeScreen({super.key});
+
+  @override
+  State<HomeScreen> createState() => _HomeScreenState();
+}
+
+class _HomeScreenState extends State<HomeScreen> {
+  int currentIndex = 0;
+
+  final screens = const [CalendarScreen(), NotesScreen()];
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      body: screens[currentIndex],
+      bottomNavigationBar: NavigationBar(
+        selectedIndex: currentIndex,
+        onDestinationSelected: (index) {
+          // Р•СЃР»Рё РЅР°Р¶Р°С‚Р° 3-СЏ РёРєРѕРЅРєР° ("РџСЂРёРµРј") вЂ” РѕС‚РєСЂС‹РІР°РµРј С‚Р°Р±Р»РёС†Сѓ РїРѕРІРµСЂС… СЌРєСЂР°РЅР°
+          if (index == 2) {
+            openSupplementTracker(context);
+            return; // Р’С‹С…РѕРґРёРј, С‡С‚РѕР±С‹ РЅРµ РјРµРЅСЏС‚СЊ currentIndex
+          }
+
+          setState(() {
+            currentIndex = index;
+          });
+        },
+        destinations: const [
+          NavigationDestination(
+            icon: Icon(Icons.calendar_month),
+            label: "РљР°Р»РµРЅРґР°СЂСЊ",
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.note_alt_outlined),
+            label: "Р—Р°РјРµС‚РєРё",
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.checklist_rtl_rounded),
+            label: "РџСЂРёРµРј",
+          ),
+        ],
+      ),
+    );
+  }
+}
+=== FILE: C:\Users\HONOR\calendar_app\lib\screens\life_spheres_screen.dart ===
+import 'package:flutter/material.dart';
+
+import '../models/life_sphere.dart';
+import '../services/life_sphere_storage.dart';
+import '../widgets/create_sphere_sheet.dart';
+
+class LifeSpheresScreen extends StatefulWidget {
+  const LifeSpheresScreen({super.key});
+
+  @override
+  State<LifeSpheresScreen> createState() => _LifeSpheresScreenState();
+}
+
+class _LifeSpheresScreenState extends State<LifeSpheresScreen> {
+  List<LifeSphere> spheres = [];
+
+  @override
+  void initState() {
+    super.initState();
+    load();
+  }
+
+  Future<void> load() async {
+    spheres = await LifeSphereStorage.load();
+
+    setState(() {});
+  }
+
+  Future<void> addSphere() async {
+    final sphere = await showModalBottomSheet<LifeSphere>(
+      context: context,
+      isScrollControlled: true,
+      builder: (_) => const CreateSphereSheet(),
+    );
+
+    if (sphere != null) {
+      spheres.add(sphere);
+
+      await LifeSphereStorage.save(spheres);
+
+      setState(() {});
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: const Text("РЎС„РµСЂС‹ Р¶РёР·РЅРё")),
+
+      floatingActionButton: FloatingActionButton(
+        onPressed: addSphere,
+        child: const Icon(Icons.add),
+      ),
+
+      body: ListView.builder(
+        padding: const EdgeInsets.all(18),
+
+        itemCount: spheres.length,
+
+        itemBuilder: (context, index) {
+          final sphere = spheres[index];
+
+          return Dismissible(
+            key: ValueKey(sphere.id),
+
+            background: Container(
+              margin: const EdgeInsets.only(bottom: 14),
+              padding: const EdgeInsets.only(left: 20),
+
+              alignment: Alignment.centerLeft,
+
+              decoration: BoxDecoration(
+                color: Colors.blue,
+                borderRadius: BorderRadius.circular(18),
+              ),
+
+              child: const Row(
+                children: [
+                  Icon(Icons.edit, color: Colors.white),
+                  SizedBox(width: 8),
+                  Text(
+                    "РР·РјРµРЅРёС‚СЊ",
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+
+            secondaryBackground: Container(
+              margin: const EdgeInsets.only(bottom: 14),
+              padding: const EdgeInsets.only(right: 20),
+
+              alignment: Alignment.centerRight,
+
+              decoration: BoxDecoration(
+                color: Colors.red,
+                borderRadius: BorderRadius.circular(18),
+              ),
+
+              child: const Row(
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  Text(
+                    "РЈРґР°Р»РёС‚СЊ",
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  SizedBox(width: 8),
+                  Icon(Icons.delete, color: Colors.white),
+                ],
+              ),
+            ),
+
+            confirmDismiss: (direction) async {
+              if (direction == DismissDirection.endToStart) {
+                spheres.removeAt(index);
+
+                await LifeSphereStorage.save(spheres);
+
+                setState(() {});
+
+                return true;
+              }
+
+              if (direction == DismissDirection.startToEnd) {
+                // РїРѕР·Р¶Рµ РѕС‚РєСЂРѕРµРј СЂРµРґР°РєС‚РёСЂРѕРІР°РЅРёРµ
+
+                final edited = await showModalBottomSheet<LifeSphere>(
+                  context: context,
+                  isScrollControlled: true,
+                  builder: (_) => CreateSphereSheet(sphere: sphere),
+                );
+
+                if (edited != null) {
+                  spheres[index] = edited;
+
+                  await LifeSphereStorage.save(spheres);
+
+                  setState(() {});
+                }
+
+                return false;
+              }
+
+              return false;
+            },
+
+            child: Card(
+              margin: const EdgeInsets.only(bottom: 14),
+
+              child: ListTile(
+                leading: CircleAvatar(
+                  backgroundColor: Color(sphere.color),
+
+                  child: Text(
+                    sphere.emoji,
+                    style: const TextStyle(fontSize: 20),
+                  ),
+                ),
+
+                title: Text(
+                  sphere.name,
+                  style: const TextStyle(fontWeight: FontWeight.w700),
+                ),
+              ),
+            ),
+          );
+        },
+      ),
+    );
+  }
+}
+=== FILE: C:\Users\HONOR\calendar_app\lib\screens\notes_screen.dart ===
+import 'package:flutter/material.dart';
+import '../models/note.dart';
+import '../services/note_storage.dart';
+import 'note_editor_screen.dart';
+import 'folders_screen.dart';
+import '../widgets/note_card.dart';
+import '../widgets/sort_notes_sheet.dart';
+import '../models/life_sphere.dart';
+import '../services/life_sphere_storage.dart';
+import '../widgets/spheres_filter.dart';
+import '../widgets/note_actions_sheet.dart';
+import '../models/note_folder.dart';
+import '../services/note_folder_storage.dart';
+import '../widgets/move_note_to_folder_sheet.dart';
+
+class NotesScreen extends StatefulWidget {
+  const NotesScreen({super.key});
+
+  @override
+  State<NotesScreen> createState() => _NotesScreenState();
+}
+
+class _NotesScreenState extends State<NotesScreen> {
+  List<Note> notes = [];
+  List<LifeSphere> spheres = [];
+  List<NoteFolder> folders = [];
+  final TextEditingController searchController = TextEditingController();
+  @override
+  void dispose() {
+    searchController.dispose();
+    super.dispose();
+  }
+
+  NotesSort sort = NotesSort.updated;
+
+  String search = "";
+
+  String? selectedSphereId;
+  String selectedFolderId = NoteFolderStorage.allFolderId;
+
+  @override
+  void initState() {
+    super.initState();
+    loadNotes();
+    loadSpheres();
+    loadFolders();
+    searchController.addListener(() {
+      setState(() {
+        search = searchController.text.toLowerCase();
+      });
+    });
+  }
+
+  Future<void> loadSpheres() async {
+    spheres = await LifeSphereStorage.load();
+
+    if (mounted) {
+      setState(() {});
+    }
+  }
+
+  Future<void> loadFolders() async {
+    final loadedFolders = await NoteFolderStorage.load();
+    if (!mounted) return;
+    setState(() {
+      folders = loadedFolders;
+      if (!folders.any((folder) => folder.id == selectedFolderId)) {
+        selectedFolderId = NoteFolderStorage.allFolderId;
+      }
+    });
+  }
+
+  Future<void> loadNotes() async {
+    notes = await NoteStorage.loadNotes();
+
+    switch (sort) {
+      case NotesSort.updated:
+        notes.sort((a, b) => b.updatedAt.compareTo(a.updatedAt));
+        break;
+
+      case NotesSort.created:
+        notes.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+        break;
+
+      case NotesSort.title:
+        notes.sort((a, b) => a.title.compareTo(b.title));
+        break;
+    }
+
+    if (mounted) setState(() {});
+  }
+
+  Future<void> _moveNote(Note note) async {
+    final folder = await showModalBottomSheet<NoteFolder>(
+      context: context,
+      isScrollControlled: true,
+      showDragHandle: false,
+      builder: (_) => MoveNoteToFolderSheet(selectedFolderId: note.folderId),
+    );
+    if (folder == null) return;
+
+    final index = notes.indexWhere((item) => item.id == note.id);
+    if (index == -1) return;
+    final updated = note.copyWith(
+      folderId: folder.id,
+      updatedAt: DateTime.now(),
+    );
+    setState(() => notes[index] = updated);
+    await NoteStorage.saveNotes(notes);
+    await loadFolders();
+  }
+
+  Future<void> _deleteNote(Note note) async {
+    notes.removeWhere((item) => item.id == note.id);
+    await NoteStorage.saveNotes(notes);
+    if (mounted) setState(() {});
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    List<Note> filteredNotes = notes.where((note) {
+      final matchSearch =
+          note.title.toLowerCase().contains(search) ||
+          note.plainText.toLowerCase().contains(search);
+
+      final matchSphere =
+          selectedSphereId == null || note.sphereIds.contains(selectedSphereId);
+
+      final matchFolder =
+          selectedFolderId == NoteFolderStorage.allFolderId ||
+          note.folderId == selectedFolderId;
+
+      return matchSearch && matchSphere && matchFolder;
+    }).toList();
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text("Р—Р°РјРµС‚РєРё"),
+
+        actions: [
+          PopupMenuButton<String>(
+            tooltip: 'Р’С‹Р±СЂР°С‚СЊ РіСЂСѓРїРїСѓ',
+            icon: const Icon(Icons.folder_open_outlined),
+            initialValue: selectedFolderId,
+            onSelected: (id) async {
+              if (id == 'manage_folders') {
+                await Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const FoldersScreen()),
+                );
+                loadFolders();
+              } else {
+                setState(() => selectedFolderId = id);
+              }
+            },
+            itemBuilder: (_) => [
+              ...folders.map(
+                (folder) => PopupMenuItem<String>(
+                  value: folder.id,
+                  child: Row(
+                    children: [
+                      Icon(
+                        folder.id == NoteFolderStorage.allFolderId
+                            ? Icons.folder_special_outlined
+                            : Icons.folder_outlined,
+                      ),
+                      const SizedBox(width: 10),
+                      Text(folder.name),
+                    ],
+                  ),
+                ),
+              ),
+              const PopupMenuDivider(),
+              const PopupMenuItem<String>(
+                value: 'manage_folders',
+                child: Row(
+                  children: [
+                    Icon(Icons.edit_outlined),
+                    SizedBox(width: 10),
+                    Text('РЈРїСЂР°РІР»РµРЅРёРµ РіСЂСѓРїРїР°РјРё'),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          IconButton(
+            icon: const Icon(Icons.sort),
+
+            onPressed: () {
+              showModalBottomSheet(
+                context: context,
+
+                builder: (_) => SortNotesSheet(
+                  current: sort,
+
+                  onSelected: (value) {
+                    setState(() {
+                      sort = value;
+                    });
+
+                    loadNotes();
+                  },
+                ),
+              );
+            },
+          ),
+        ],
+      ),
+      body: Column(
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(18, 12, 18, 12),
+
+            child: TextField(
+              controller: searchController,
+
+              decoration: InputDecoration(
+                hintText: "РџРѕРёСЃРє",
+
+                prefixIcon: const Icon(Icons.search),
+
+                filled: true,
+
+                fillColor: Colors.white,
+
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(18),
+                  borderSide: BorderSide.none,
+                ),
+              ),
+            ),
+          ),
+          SpheresFilter(
+            spheres: spheres,
+            selectedId: selectedSphereId,
+
+            onChanged: (id) {
+              setState(() {
+                selectedSphereId = id;
+              });
+            },
+          ),
+
+          const SizedBox(height: 10),
+          Expanded(
+            child: filteredNotes.isEmpty
+                ? const Center(
+                    child: Text(
+                      "РќРёС‡РµРіРѕ РЅРµ РЅР°Р№РґРµРЅРѕ",
+                      style: TextStyle(fontSize: 22),
+                    ),
+                  )
+                : ListView.builder(
+                    itemCount: filteredNotes.length,
+
+                    itemBuilder: (context, index) {
+                      final note = filteredNotes[index];
+
+                      return Dismissible(
+                        key: ValueKey(note.id),
+
+                        background: Container(
+                          alignment: Alignment.centerLeft,
+                          padding: const EdgeInsets.only(left: 24),
+                          color: Colors.orange,
+                          child: const Icon(
+                            Icons.folder_copy_outlined,
+                            color: Colors.white,
+                          ),
+                        ),
+
+                        secondaryBackground: Container(
+                          alignment: Alignment.centerRight,
+                          padding: const EdgeInsets.only(right: 24),
+                          color: Colors.red,
+                          child: const Icon(Icons.delete, color: Colors.white),
+                        ),
+
+                        confirmDismiss: (direction) async {
+                          if (direction == DismissDirection.endToStart) {
+                            await _deleteNote(note);
+                            return true;
+                          }
+                          if (direction == DismissDirection.startToEnd) {
+                            await _moveNote(note);
+                          }
+                          return false;
+                        },
+
+                        child: NoteCard(
+                          note: note,
+
+                          onTap: () async {
+                            final result = await Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) => NoteEditorScreen(note: note),
+                              ),
+                            );
+
+                            if (result == true) {
+                              loadNotes();
+                            }
+                          },
+                          onLongPress: () {
+                            showModalBottomSheet(
+                              context: context,
+
+                              builder: (_) => NoteActionsSheet(
+                                onEdit: () {
+                                  Navigator.pop(context);
+
+                                  Navigator.push(
+                                    context,
+                                    MaterialPageRoute(
+                                      builder: (_) =>
+                                          NoteEditorScreen(note: note),
+                                    ),
+                                  ).then((_) => loadNotes());
+                                },
+
+                                onFolder: () {
+                                  Navigator.pop(context);
+                                  _moveNote(note);
+                                },
+
+                                onSphere: () {
+                                  Navigator.pop(context);
+                                  Navigator.push(
+                                    context,
+                                    MaterialPageRoute(
+                                      builder: (_) =>
+                                          NoteEditorScreen(note: note),
+                                    ),
+                                  ).then((_) => loadNotes());
+                                },
+
+                                onDuplicate: () async {
+                                  Navigator.pop(context);
+
+                                  notes.add(
+                                    note.copyWith(
+                                      id: DateTime.now().millisecondsSinceEpoch
+                                          .toString(),
+                                      createdAt: DateTime.now(),
+                                      updatedAt: DateTime.now(),
+                                    ),
+                                  );
+
+                                  await NoteStorage.saveNotes(notes);
+
+                                  loadNotes();
+                                },
+
+                                onDelete: () async {
+                                  Navigator.pop(context);
+
+                                  await _deleteNote(note);
+                                },
+                              ),
+                            );
+                          },
+                        ),
+                      );
+                    },
+                  ),
+          ),
+        ],
+      ),
+
+      floatingActionButton: FloatingActionButton(
+        child: const Icon(Icons.add),
+
+        onPressed: () async {
+          await Navigator.push(
+            context,
+            MaterialPageRoute(builder: (_) => const NoteEditorScreen()),
+          );
+
+          loadNotes();
+        },
+      ),
+    );
+  }
+}
+=== FILE: C:\Users\HONOR\calendar_app\lib\screens\note_editor_screen.dart ===
+import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+
+import '../models/note.dart';
+import '../models/note_block.dart';
+import '../services/note_storage.dart';
+import '../widgets/note_toolbar.dart';
+import '../widgets/select_spheres_sheet.dart';
+
+class NoteEditorScreen extends StatefulWidget {
+  final Note? note;
+
+  const NoteEditorScreen({super.key, this.note});
+
+  @override
+  State<NoteEditorScreen> createState() => _NoteEditorScreenState();
+}
+
+class _NoteEditorScreenState extends State<NoteEditorScreen> {
+  late TextEditingController titleController;
+
+  final List<TextEditingController> blockControllers = [];
+  final List<FocusNode> blockFocusNodes = [];
+
+  List<NoteBlock> blocks = [];
+  List<String> selectedSphereIds = [];
+
+  int activeBlockIndex = 0;
+  final List<List<NoteBlock>> _undoStack = [];
+  final List<List<NoteBlock>> _redoStack = [];
+
+  @override
+  void initState() {
+    super.initState();
+
+    titleController = TextEditingController(text: widget.note?.title ?? "");
+
+    selectedSphereIds = List<String>.from(widget.note?.sphereIds ?? []);
+
+    if (widget.note != null && widget.note!.blocks.isNotEmpty) {
+      blocks = widget.note!.blocks.map((block) => block.copyWith()).toList();
+    } else {
+      blocks = [
+        NoteBlock(id: DateTime.now().microsecondsSinceEpoch.toString()),
+      ];
+    }
+
+    _createControllers();
+  }
+
+  // ------------------------------------------------------------
+  // CONTROLLERS
+  // ------------------------------------------------------------
+
+  void _createControllers() {
+    for (final controller in blockControllers) {
+      controller.dispose();
+    }
+
+    for (final node in blockFocusNodes) {
+      node.dispose();
+    }
+
+    blockControllers.clear();
+    blockFocusNodes.clear();
+
+    for (var i = 0; i < blocks.length; i++) {
+      final controller = TextEditingController(text: blocks[i].text);
+
+      final focusNode = FocusNode();
+
+      controller.addListener(() {
+        final index = blockControllers.indexOf(controller);
+
+        if (index >= 0 && index < blocks.length) {
+          blocks[index].text = controller.text;
+        }
+      });
+
+      focusNode.addListener(() {
+        if (focusNode.hasFocus) {
+          activeBlockIndex = i;
+        }
+      });
+
+      blockControllers.add(controller);
+      blockFocusNodes.add(focusNode);
+    }
+  }
+
+  @override
+  void dispose() {
+    titleController.dispose();
+
+    for (final controller in blockControllers) {
+      controller.dispose();
+    }
+
+    for (final node in blockFocusNodes) {
+      node.dispose();
+    }
+
+    super.dispose();
+  }
+
+  void _saveUndoState() {
+    _undoStack.add(blocks.map((block) => block.copyWith()).toList());
+    _redoStack.clear();
+
+    // РќРµ РїРѕР·РІРѕР»СЏРµРј РёСЃС‚РѕСЂРёРё Р±РµСЃРєРѕРЅРµС‡РЅРѕ СЂР°СЃС‚Рё.
+    if (_undoStack.length > 50) {
+      _undoStack.removeAt(0);
+    }
+  }
+
+  void _undo() {
+    if (_undoStack.isEmpty) return;
+
+    setState(() {
+      _redoStack.add(blocks.map((block) => block.copyWith()).toList());
+      blocks = _undoStack
+          .removeLast()
+          .map((block) => block.copyWith())
+          .toList();
+
+      if (blocks.isEmpty) {
+        blocks.add(
+          NoteBlock(id: DateTime.now().microsecondsSinceEpoch.toString()),
+        );
+      }
+
+      activeBlockIndex = activeBlockIndex.clamp(0, blocks.length - 1);
+
+      _createControllers();
+    });
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+
+      if (activeBlockIndex < blockFocusNodes.length) {
+        blockFocusNodes[activeBlockIndex].requestFocus();
+      }
+    });
+  }
+
+  void _redo() {
+    if (_redoStack.isEmpty) return;
+
+    setState(() {
+      _undoStack.add(blocks.map((block) => block.copyWith()).toList());
+      blocks = _redoStack
+          .removeLast()
+          .map((block) => block.copyWith())
+          .toList();
+      activeBlockIndex = activeBlockIndex.clamp(0, blocks.length - 1);
+      _createControllers();
+    });
+  }
+  // ------------------------------------------------------------
+  // SAVE
+  // ------------------------------------------------------------
+
+  Future<void> saveNote() async {
+    final now = DateTime.now();
+
+    final preparedBlocks = <NoteBlock>[];
+
+    for (var i = 0; i < blocks.length; i++) {
+      preparedBlocks.add(blocks[i].copyWith(text: blockControllers[i].text));
+    }
+
+    // РЈР±РёСЂР°РµРј РїРѕР»РЅРѕСЃС‚СЊСЋ РїСѓСЃС‚С‹Рµ Р±Р»РѕРєРё,
+    // РЅРѕ РѕСЃС‚Р°РІР»СЏРµРј С…РѕС‚СЏ Р±С‹ РѕРґРёРЅ Р±Р»РѕРє.
+    final nonEmptyBlocks = preparedBlocks
+        .where((block) => block.text.trim().isNotEmpty)
+        .toList();
+
+    if (nonEmptyBlocks.isEmpty) {
+      nonEmptyBlocks.add(
+        NoteBlock(id: DateTime.now().microsecondsSinceEpoch.toString()),
+      );
+    }
+
+    final plainText = nonEmptyBlocks
+        .map((block) => block.text)
+        .where((text) => text.trim().isNotEmpty)
+        .join('\n');
+
+    final notes = await NoteStorage.loadNotes();
+
+    final note = Note(
+      id: widget.note?.id ?? DateTime.now().millisecondsSinceEpoch.toString(),
+      title: titleController.text.trim(),
+      content: plainText,
+      createdAt: widget.note?.createdAt ?? now,
+      updatedAt: now,
+      folderId: widget.note?.folderId ?? "all",
+      sphereIds: List<String>.from(selectedSphereIds),
+      blocks: nonEmptyBlocks,
+    );
+
+    if (widget.note == null) {
+      notes.add(note);
+    } else {
+      final index = notes.indexWhere((item) => item.id == widget.note!.id);
+
+      if (index != -1) {
+        notes[index] = note;
+      }
+    }
+
+    await NoteStorage.saveNotes(notes);
+
+    if (!mounted) return;
+
+    Navigator.pop(context, true);
+  }
+
+  // ------------------------------------------------------------
+  // BLOCKS
+  // ------------------------------------------------------------
+
+  void _handleBackspace(int index) {
+    if (index <= 0) return;
+    _saveUndoState();
+
+    final controller = blockControllers[index];
+
+    // Р•СЃР»Рё Р±Р»РѕРє РїСѓСЃС‚РѕР№ вЂ” РїСЂРѕСЃС‚Рѕ СѓРґР°Р»СЏРµРј РµРіРѕ.
+    if (controller.text.isEmpty) {
+      final previousText = blockControllers[index - 1].text;
+
+      setState(() {
+        blocks.removeAt(index);
+        activeBlockIndex = index - 1;
+        _createControllers();
+      });
+
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+
+        final previousController = blockControllers[activeBlockIndex];
+
+        previousController.selection = TextSelection.collapsed(
+          offset: previousText.length,
+        );
+
+        blockFocusNodes[activeBlockIndex].requestFocus();
+      });
+
+      return;
+    }
+
+    // Р•СЃР»Рё С‚РµРєСЃС‚ РµСЃС‚СЊ вЂ” РѕР±СЉРµРґРёРЅСЏРµРј С‚РµРєСѓС‰РёР№ Р±Р»РѕРє СЃ РїСЂРµРґС‹РґСѓС‰РёРј.
+    final previousController = blockControllers[index - 1];
+
+    final previousText = previousController.text;
+    final currentText = controller.text;
+
+    final previousBlock = blocks[index - 1];
+
+    setState(() {
+      blocks[index - 1] = previousBlock.copyWith(
+        text: previousText + currentText,
+      );
+
+      blocks.removeAt(index);
+
+      activeBlockIndex = index - 1;
+
+      _createControllers();
+    });
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+
+      final previousController = blockControllers[activeBlockIndex];
+
+      previousController.selection = TextSelection.collapsed(
+        offset: previousText.length,
+      );
+
+      blockFocusNodes[activeBlockIndex].requestFocus();
+    });
+  }
+
+  // ------------------------------------------------------------
+  // SELECTION
+  // ------------------------------------------------------------
+
+  TextSelection _selectionForActiveBlock() {
+    if (blocks.isEmpty) {
+      return const TextSelection.collapsed(offset: 0);
+    }
+
+    final index = activeBlockIndex;
+
+    if (index < 0 || index >= blockControllers.length) {
+      return const TextSelection.collapsed(offset: 0);
+    }
+
+    return blockControllers[index].selection;
+  }
+
+  bool get hasSelection {
+    final selection = _selectionForActiveBlock();
+
+    return selection.start != selection.end;
+  }
+
+  // ------------------------------------------------------------
+  // FORMAT SELECTED TEXT
+  // ------------------------------------------------------------
+
+  void _formatSelection({
+    bool? bold,
+    bool? italic,
+    bool? underline,
+    bool? strike,
+    int? color,
+    String? fontFamily,
+  }) {
+    if (blocks.isEmpty) return;
+    _saveUndoState();
+
+    final index = activeBlockIndex;
+
+    if (index < 0 || index >= blocks.length) return;
+
+    final controller = blockControllers[index];
+    final selection = controller.selection;
+
+    // Р•СЃР»Рё РЅРёС‡РµРіРѕ РЅРµ РІС‹РґРµР»РµРЅРѕ вЂ”
+    // РјРµРЅСЏРµРј С„РѕСЂРјР°С‚ С‚РµРєСѓС‰РµРіРѕ Р±Р»РѕРєР° С†РµР»РёРєРѕРј.
+    if (selection.start == selection.end) {
+      setState(() {
+        blocks[index] = blocks[index].copyWith(
+          isBold: bold,
+          isItalic: italic,
+          isUnderlined: underline,
+          isStruckThrough: strike,
+          colorValue: color,
+          fontFamily: fontFamily,
+        );
+      });
+
+      return;
+    }
+
+    final start = selection.start;
+    final end = selection.end;
+
+    final text = controller.text;
+
+    final before = text.substring(0, start);
+    final selected = text.substring(start, end);
+    final after = text.substring(end);
+
+    final original = blocks[index];
+
+    final newBlocks = <NoteBlock>[];
+
+    if (before.isNotEmpty) {
+      newBlocks.add(
+        original.copyWith(
+          id: DateTime.now().microsecondsSinceEpoch.toString(),
+          text: before,
+        ),
+      );
+    }
+
+    newBlocks.add(
+      original.copyWith(
+        id: DateTime.now().microsecondsSinceEpoch.toString(),
+        text: selected,
+        isBold: bold ?? original.isBold,
+        isItalic: italic ?? original.isItalic,
+        isUnderlined: underline ?? original.isUnderlined,
+        isStruckThrough: strike ?? original.isStruckThrough,
+        colorValue: color ?? original.colorValue,
+        fontFamily: fontFamily ?? original.fontFamily,
+      ),
+    );
+
+    if (after.isNotEmpty) {
+      newBlocks.add(
+        original.copyWith(
+          id: DateTime.now().microsecondsSinceEpoch.toString(),
+          text: after,
+        ),
+      );
+    }
+
+    setState(() {
+      blocks.removeAt(index);
+      blocks.insertAll(index, newBlocks);
+
+      activeBlockIndex = index + (before.isNotEmpty ? 1 : 0);
+
+      _createControllers();
+    });
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+
+      if (activeBlockIndex >= blockControllers.length) {
+        return;
+      }
+
+      final selectedController = blockControllers[activeBlockIndex];
+
+      selectedController.selection = TextSelection(
+        baseOffset: 0,
+        extentOffset: selected.length,
+      );
+
+      blockFocusNodes[activeBlockIndex].requestFocus();
+    });
+  }
+
+  // ------------------------------------------------------------
+  // FORMAT BUTTONS
+  // ------------------------------------------------------------
+
+  void toggleBold() {
+    final current = blocks[activeBlockIndex];
+
+    _formatSelection(bold: !current.isBold);
+  }
+
+  void toggleItalic() {
+    final current = blocks[activeBlockIndex];
+
+    _formatSelection(italic: !current.isItalic);
+  }
+
+  void toggleUnderline() {
+    final current = blocks[activeBlockIndex];
+
+    _formatSelection(underline: !current.isUnderlined);
+  }
+
+  void toggleStrike() {
+    final current = blocks[activeBlockIndex];
+
+    _formatSelection(strike: !current.isStruckThrough);
+  }
+
+  // ------------------------------------------------------------
+  // CHECKLIST
+  // ------------------------------------------------------------
+
+  void setChecklist() {
+    if (blocks.isEmpty) return;
+
+    _saveUndoState();
+
+    final index = activeBlockIndex;
+
+    final current = blocks[index];
+
+    setState(() {
+      blocks[index] = current.copyWith(
+        type: current.type == NoteBlockType.checklist
+            ? NoteBlockType.paragraph
+            : NoteBlockType.checklist,
+      );
+    });
+  }
+
+  // ------------------------------------------------------------
+  // NUMBERED LIST
+  // ------------------------------------------------------------
+
+  void setNumbered() {
+    if (blocks.isEmpty) return;
+    _saveUndoState();
+
+    final index = activeBlockIndex;
+
+    final current = blocks[index];
+
+    setState(() {
+      blocks[index] = current.copyWith(
+        type: current.type == NoteBlockType.numbered
+            ? NoteBlockType.paragraph
+            : NoteBlockType.numbered,
+      );
+    });
+  }
+
+  // ------------------------------------------------------------
+  // SPHERES
+  // ------------------------------------------------------------
+
+  Future<void> selectSpheres() async {
+    final result = await showModalBottomSheet<List<String>>(
+      context: context,
+      isScrollControlled: true,
+      builder: (_) {
+        return SelectSpheresSheet(selected: selectedSphereIds);
+      },
+    );
+
+    if (result != null) {
+      setState(() {
+        selectedSphereIds = result;
+      });
+    }
+  }
+
+  // ------------------------------------------------------------
+  // COLORS
+  // ------------------------------------------------------------
+
+  Future<void> selectColor() async {
+    const colors = [
+      0xFF16161A, // black
+      0xFFFF3B30, // red
+      0xFF007AFF, // blue
+      0xFFFF9500, // orange
+      0xFF34C759, // green
+      0xFFAF52DE, // purple
+      0xFFFF2D55, // pink
+    ];
+
+    final currentColor = blocks[activeBlockIndex].colorValue;
+
+    final result = await showModalBottomSheet<int>(
+      context: context,
+      builder: (_) {
+        return SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.all(20),
+            child: Wrap(
+              spacing: 16,
+              runSpacing: 16,
+              children: colors.map((color) {
+                return GestureDetector(
+                  onTap: () {
+                    Navigator.pop(context, color);
+                  },
+                  child: Container(
+                    width: 48,
+                    height: 48,
+                    decoration: BoxDecoration(
+                      color: Color(color),
+                      shape: BoxShape.circle,
+                      border: color == currentColor
+                          ? Border.all(color: Colors.black, width: 3)
+                          : null,
+                    ),
+                  ),
+                );
+              }).toList(),
+            ),
+          ),
+        );
+      },
+    );
+
+    if (result != null) {
+      _formatSelection(color: result);
+    }
+  }
+
+  Future<void> selectFont() async {
+    const fonts = <String, String>{
+      'sans': 'РћР±С‹С‡РЅС‹Р№',
+      'serif': 'РЎ Р·Р°СЃРµС‡РєР°РјРё',
+      'monospace': 'РњРѕРЅРѕС€РёСЂРёРЅРЅС‹Р№',
+    };
+    final result = await showModalBottomSheet<String>(
+      context: context,
+      builder: (sheetContext) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'РЁСЂРёС„С‚',
+                style: TextStyle(fontSize: 22, fontWeight: FontWeight.w700),
+              ),
+              const SizedBox(height: 8),
+              ...fonts.entries.map(
+                (entry) => ListTile(
+                  title: Text(
+                    entry.value,
+                    style: TextStyle(
+                      fontFamily: entry.key == 'sans' ? null : entry.key,
+                    ),
+                  ),
+                  trailing: blocks[activeBlockIndex].fontFamily == entry.key
+                      ? const Icon(Icons.check)
+                      : null,
+                  onTap: () => Navigator.pop(sheetContext, entry.key),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+    if (result != null) _formatSelection(fontFamily: result);
+  }
+
+  // ------------------------------------------------------------
+  // STYLE
+  // ------------------------------------------------------------
+
+  TextStyle _blockStyle(NoteBlock block) {
+    final decorations = <TextDecoration>[];
+
+    if (block.isUnderlined) {
+      decorations.add(TextDecoration.underline);
+    }
+
+    if (block.isStruckThrough) {
+      decorations.add(TextDecoration.lineThrough);
+    }
+
+    return TextStyle(
+      fontSize: 18,
+      fontFamily: block.fontFamily == 'sans' ? null : block.fontFamily,
+      color: Color(block.colorValue),
+      fontWeight: block.isBold ? FontWeight.bold : FontWeight.normal,
+      fontStyle: block.isItalic ? FontStyle.italic : FontStyle.normal,
+      decoration: decorations.isEmpty
+          ? TextDecoration.none
+          : TextDecoration.combine(decorations),
+    );
+  }
+
+  // ------------------------------------------------------------
+  // BLOCK UI
+  // ------------------------------------------------------------
+
+  Widget _buildBlock(BuildContext context, NoteBlock block, int index) {
+    final field = Focus(
+      onKeyEvent: (node, event) {
+        if (event is! KeyDownEvent) {
+          return KeyEventResult.ignored;
+        }
+
+        if (event.logicalKey == LogicalKeyboardKey.backspace) {
+          final controller = blockControllers[index];
+          final selection = controller.selection;
+
+          // РћР±СЂР°Р±Р°С‚С‹РІР°РµРј Backspace С‚РѕР»СЊРєРѕ РєРѕРіРґР° РєСѓСЂСЃРѕСЂ
+          // СЃС‚РѕРёС‚ РІ СЃР°РјРѕРј РЅР°С‡Р°Р»Рµ Р±Р»РѕРєР°.
+          if (selection.isCollapsed && selection.baseOffset == 0) {
+            // РџРµСЂРІС‹Р№ Р±Р»РѕРє СѓРґР°Р»СЏС‚СЊ РЅРµР»СЊР·СЏ.
+            if (index == 0) {
+              return KeyEventResult.ignored;
+            }
+
+            // Р•СЃР»Рё С‚РµРєСѓС‰РёР№ Р±Р»РѕРє РїСѓСЃС‚РѕР№ вЂ”
+            // РїСЂРѕСЃС‚Рѕ СѓРґР°Р»СЏРµРј РµРіРѕ.
+            if (controller.text.isEmpty) {
+              _handleBackspace(index);
+              return KeyEventResult.handled;
+            }
+
+            // Р•СЃР»Рё С‚РµРєСЃС‚ РµСЃС‚СЊ, РѕР±СЉРµРґРёРЅСЏРµРј РµРіРѕ СЃ РїСЂРµРґС‹РґСѓС‰РёРј.
+            final previousController = blockControllers[index - 1];
+
+            final previousText = previousController.text;
+            final currentText = controller.text;
+
+            final previousBlock = blocks[index - 1];
+
+            final newText = previousText + currentText;
+            _saveUndoState();
+
+            setState(() {
+              blocks[index - 1] = previousBlock.copyWith(text: newText);
+
+              blocks.removeAt(index);
+
+              activeBlockIndex = index - 1;
+
+              _createControllers();
+            });
+
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              if (!mounted) return;
+
+              final controller = blockControllers[activeBlockIndex];
+
+              controller.selection = TextSelection.collapsed(
+                offset: previousText.length,
+              );
+
+              blockFocusNodes[activeBlockIndex].requestFocus();
+            });
+
+            return KeyEventResult.handled;
+          }
+        }
+
+        if (event.logicalKey != LogicalKeyboardKey.enter) {
+          return KeyEventResult.ignored;
+        }
+
+        final controller = blockControllers[index];
+        final selection = controller.selection;
+
+        // Р•СЃР»Рё С‚РµРєСЃС‚ РІС‹РґРµР»РµРЅ вЂ” РїРѕР·РІРѕР»СЏРµРј TextField
+        // РѕР±СЂР°Р±РѕС‚Р°С‚СЊ РѕР±С‹С‡РЅС‹Р№ Enter.
+        if (!selection.isCollapsed) {
+          return KeyEventResult.ignored;
+        }
+
+        final cursor = selection.baseOffset;
+
+        // РџСѓСЃС‚РѕР№ РїСѓРЅРєС‚ СЃРїРёСЃРєР° + Enter = РІС‹С…РѕРґ РёР· СЃРїРёСЃРєР°.
+        if (controller.text.trim().isEmpty &&
+            block.type != NoteBlockType.paragraph) {
+          final newBlock = NoteBlock(
+            id: DateTime.now().microsecondsSinceEpoch.toString(),
+          );
+
+          setState(() {
+            blocks[index] = block.copyWith(
+              type: NoteBlockType.paragraph,
+              isChecked: false,
+              text: '',
+            );
+
+            blocks.insert(index + 1, newBlock);
+
+            activeBlockIndex = index + 1;
+
+            _createControllers();
+          });
+
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (!mounted) return;
+
+            blockFocusNodes[activeBlockIndex].requestFocus();
+          });
+
+          return KeyEventResult.handled;
+        }
+
+        // Р Р°Р·РґРµР»СЏРµРј С‚РµРєСЃС‚ РїРѕ РїРѕР·РёС†РёРё РєСѓСЂСЃРѕСЂР°.
+        final textBefore = controller.text.substring(0, cursor);
+        final textAfter = controller.text.substring(cursor);
+
+        final currentType = block.type;
+
+        final newBlockType = currentType;
+
+        // РЎРѕР·РґР°С‘Рј РЅРѕРІС‹Р№ Р±Р»РѕРє СЃ С‚РµРј Р¶Рµ С„РѕСЂРјР°С‚РёСЂРѕРІР°РЅРёРµРј.
+        final newBlock = block.copyWith(
+          id: DateTime.now().microsecondsSinceEpoch.toString(),
+          text: textAfter,
+          type: newBlockType,
+          isChecked: false,
+        );
+
+        setState(() {
+          blocks[index] = block.copyWith(text: textBefore);
+
+          blocks.insert(index + 1, newBlock);
+
+          activeBlockIndex = index + 1;
+
+          _createControllers();
+        });
+
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (!mounted) return;
+
+          if (activeBlockIndex >= blockControllers.length) {
+            return;
+          }
+
+          final newController = blockControllers[activeBlockIndex];
+
+          newController.selection = const TextSelection.collapsed(offset: 0);
+
+          blockFocusNodes[activeBlockIndex].requestFocus();
+        });
+
+        return KeyEventResult.handled;
+      },
+      child: TextField(
+        controller: blockControllers[index],
+        focusNode: blockFocusNodes[index],
+        style: _blockStyle(block),
+        maxLines: null,
+        textInputAction: TextInputAction.newline,
+        decoration: InputDecoration(
+          hintText: index == 0 ? "РќР°С‡РЅРёС‚Рµ РїРёСЃР°С‚СЊ..." : null,
+          border: InputBorder.none,
+          isDense: true,
+          contentPadding: const EdgeInsets.symmetric(vertical: 6),
+          filled: false,
+        ),
+        onTap: () {
+          activeBlockIndex = index;
+        },
+        onChanged: (_) {
+          activeBlockIndex = index;
+        },
+      ),
+    );
+
+    if (block.type == NoteBlockType.checklist) {
+      return Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Checkbox(
+            value: block.isChecked,
+            onChanged: (value) {
+              setState(() {
+                blocks[index] = block.copyWith(isChecked: value ?? false);
+              });
+            },
+          ),
+          Expanded(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(vertical: 2),
+              child: field,
+            ),
+          ),
+        ],
+      );
+    }
+
+    if (block.type == NoteBlockType.numbered) {
+      return Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Padding(
+            padding: const EdgeInsets.only(top: 9, right: 8),
+            child: Text(
+              "${_numberForBlock(index)}.",
+              style: const TextStyle(fontSize: 18),
+            ),
+          ),
+          Expanded(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(vertical: 2),
+              child: field,
+            ),
+          ),
+        ],
+      );
+    }
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 2),
+      child: field,
+    );
+  }
+
+  int _numberForBlock(int index) {
+    var number = 1;
+
+    for (var i = index - 1; i >= 0; i--) {
+      if (blocks[i].type != NoteBlockType.numbered) {
+        break;
+      }
+
+      number++;
+    }
+
+    return number;
+  }
+
+  // ------------------------------------------------------------
+  // BUILD
+  // ------------------------------------------------------------
+
+  @override
+  Widget build(BuildContext context) {
+    final activeBlock = blocks.isEmpty ? null : blocks[activeBlockIndex];
+
+    return Scaffold(
+      backgroundColor: Colors.white,
+      appBar: AppBar(
+        backgroundColor: Colors.white,
+        surfaceTintColor: Colors.transparent,
+        elevation: 0,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back_ios_new_rounded),
+          onPressed: saveNote,
+        ),
+        actions: [
+          IconButton(
+            tooltip: "РћС‚РјРµРЅРёС‚СЊ",
+            onPressed: _undoStack.isEmpty ? null : _undo,
+            icon: const Icon(Icons.undo_rounded),
+          ),
+          TextButton(
+            onPressed: saveNote,
+            child: const Text(
+              "Р“РѕС‚РѕРІРѕ",
+              style: TextStyle(fontSize: 17, fontWeight: FontWeight.w600),
+            ),
+          ),
+          const SizedBox(width: 8),
+        ],
+      ),
+
+      body: Column(
+        children: [
+          Expanded(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 20),
+              child: Column(
+                children: [
+                  TextField(
+                    controller: titleController,
+                    style: const TextStyle(
+                      fontSize: 28,
+                      fontWeight: FontWeight.bold,
+                      letterSpacing: -0.5,
+                    ),
+                    decoration: const InputDecoration(
+                      hintText: "РќР°Р·РІР°РЅРёРµ",
+                      border: InputBorder.none,
+                      filled: false,
+                      contentPadding: EdgeInsets.symmetric(vertical: 8),
+                    ),
+                  ),
+                  Expanded(
+                    child: ListView.builder(
+                      padding: const EdgeInsets.only(bottom: 20),
+                      itemCount: blocks.length,
+                      itemBuilder: (context, index) {
+                        return _buildBlock(context, blocks[index], index);
+                      },
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+
+          NoteToolbar(
+            onSphere: selectSpheres,
+            onBold: toggleBold,
+            onItalic: toggleItalic,
+            onUnderline: toggleUnderline,
+            onStrike: toggleStrike,
+            onChecklist: setChecklist,
+            onNumbers: setNumbered,
+            onColor: selectColor,
+            onFont: selectFont,
+            onUndo: _undo,
+            onRedo: _redo,
+
+            boldActive: activeBlock?.isBold ?? false,
+            italicActive: activeBlock?.isItalic ?? false,
+            underlineActive: activeBlock?.isUnderlined ?? false,
+            strikeActive: activeBlock?.isStruckThrough ?? false,
+            undoAvailable: _undoStack.isNotEmpty,
+            redoAvailable: _redoStack.isNotEmpty,
+          ),
+        ],
+      ),
+    );
+  }
+}
+=== FILE: C:\Users\HONOR\calendar_app\lib\screens\supplement_tracker_button.dart ===
+import 'dart:convert';
+import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+
+/// РљРЅРѕРїРєР°-РёРєРѕРЅРєР° (РµСЃР»Рё РїРѕРЅР°РґРѕР±РёС‚СЃСЏ РёСЃРїРѕР»СЊР·РѕРІР°С‚СЊ РѕС‚РґРµР»СЊРЅРѕ РІ AppBar)
+class SupplementTrackerButton extends StatelessWidget {
+  const SupplementTrackerButton({super.key});
+
+  void _openTrackerModal(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (context) => const SupplementTrackerSheet(),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return IconButton(
+      icon: const Icon(Icons.checklist_rtl_rounded),
+      tooltip: 'Р”РЅРё РїСЂРёРµРјР° Р±РµР· С‚Р°Р±Р»РµС‚РѕРє',
+      onPressed: () => _openTrackerModal(context),
+    );
+  }
+}
+
+/// РЎРѕРґРµСЂР¶РёРјРѕРµ РІС‹РµР·Р¶Р°СЋС‰РµРіРѕ РѕРєРЅР° СЃ С‚Р°Р±Р»РёС†РµР№ Рё РїРѕР»РµРј РґР»СЏ РїСЂРёРјРµС‡Р°РЅРёР№
+class SupplementTrackerSheet extends StatefulWidget {
+  const SupplementTrackerSheet({super.key});
+
+  @override
+  State<SupplementTrackerSheet> createState() => _SupplementTrackerSheetState();
+}
+
+class _SupplementTrackerSheetState extends State<SupplementTrackerSheet> {
+  static const String _checksStorageKey = 'supplement_tracker_checks_v1';
+  static const String _notesStorageKey = 'supplement_tracker_notes_v1';
+
+  final List<String> days = ['РџРЅ', 'Р’С‚', 'РЎСЂ', 'Р§С‚', 'РџС‚', 'РЎР±', 'Р’СЃ'];
+
+  final List<String> items = [
+    'РЈС‚СЂРѕ AAKG',
+    'РћР±РµРґ AAKG',
+    'РџСЂРѕС‚РµРёРЅ РљСЂРµР°С‚РёРЅ',
+    'Р’РµС‡РµСЂ РђРђРљG',
+  ];
+
+  late List<List<bool>> checks;
+  final TextEditingController _notesController = TextEditingController();
+  bool _isLoading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _initDefaultChecks();
+    _loadData();
+  }
+
+  @override
+  void dispose() {
+    _notesController.dispose();
+    super.dispose();
+  }
+
+  void _initDefaultChecks() {
+    checks = List.generate(
+      items.length,
+      (_) => List.generate(days.length, (_) => false),
+    );
+  }
+
+  /// Р—Р°РіСЂСѓР·РєР° СЃРѕС…СЂР°РЅРµРЅРЅС‹С… РіР°Р»РѕС‡РµРє Рё С‚РµРєСЃС‚Р° РїСЂРёРјРµС‡Р°РЅРёР№
+  Future<void> _loadData() async {
+    final prefs = await SharedPreferences.getInstance();
+
+    // 1. Р—Р°РіСЂСѓР¶Р°РµРј РіР°Р»РѕС‡РєРё
+    final savedChecksJson = prefs.getString(_checksStorageKey);
+    if (savedChecksJson != null) {
+      try {
+        final List<dynamic> decoded = jsonDecode(savedChecksJson);
+        final loadedChecks = decoded
+            .map((row) => (row as List<dynamic>).map((e) => e as bool).toList())
+            .toList();
+
+        if (loadedChecks.length == items.length &&
+            loadedChecks.every((row) => row.length == days.length)) {
+          checks = loadedChecks;
+        }
+      } catch (_) {}
+    }
+
+    // 2. Р—Р°РіСЂСѓР¶Р°РµРј С‚РµРєСЃС‚ РїСЂРёРјРµС‡Р°РЅРёР№
+    final savedNotes = prefs.getString(_notesStorageKey);
+    if (savedNotes != null) {
+      _notesController.text = savedNotes;
+    }
+
+    if (mounted) {
+      setState(() {
+        _isLoading = false;
+      });
+    }
+  }
+
+  /// РЎРѕС…СЂР°РЅРµРЅРёРµ РіР°Р»РѕС‡РµРє
+  Future<void> _saveChecks() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_checksStorageKey, jsonEncode(checks));
+  }
+
+  /// РЎРѕС…СЂР°РЅРµРЅРёРµ С‚РµРєСЃС‚Р° РїСЂРёРјРµС‡Р°РЅРёР№
+  Future<void> _saveNotes(String text) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_notesStorageKey, text);
+  }
+
+  /// РЎР±СЂРѕСЃ РіР°Р»РѕС‡РµРє РЅР° РЅРѕРІСѓСЋ РЅРµРґРµР»СЋ (РїСЂРёРјРµС‡Р°РЅРёСЏ РѕСЃС‚Р°СЋС‚СЃСЏ РЅРµС‚СЂРѕРЅСѓС‚С‹РјРё)
+  Future<void> _resetChecks() async {
+    setState(() {
+      _initDefaultChecks();
+    });
+    await _saveChecks();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final bottomInset = MediaQuery.viewInsetsOf(context).bottom;
+
+    return SafeArea(
+      child: Padding(
+        // РџРѕРґРЅРёРјР°РµРј РѕРєРЅРѕ РЅР°Рґ РєР»Р°РІРёР°С‚СѓСЂРѕР№ РїСЂРё РІРІРѕРґРµ С‚РµРєСЃС‚Р°
+        padding: EdgeInsets.fromLTRB(16, 12, 16, 20 + bottomInset),
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // РРЅРґРёРєР°С‚РѕСЂ С€С‚РѕСЂРєРё СЃРІРµСЂС…Сѓ
+              Center(
+                child: Container(
+                  width: 40,
+                  height: 4,
+                  margin: const EdgeInsets.only(bottom: 12),
+                  decoration: BoxDecoration(
+                    color: Colors.grey.withValues(alpha: 0.4),
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+              ),
+
+              // РЁР°РїРєР° РѕРєРЅР°: Р—Р°РіРѕР»РѕРІРѕРє + РєРЅРѕРїРєРё СЃР±СЂРѕСЃР° Рё Р·Р°РєСЂС‹С‚РёСЏ
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  const Expanded(
+                    child: Text(
+                      'Р”РЅРё РїСЂРёРµРјР° Р±РµР· С‚Р°Р±Р»РµС‚РѕРє',
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                  TextButton.icon(
+                    onPressed: _resetChecks,
+                    icon: const Icon(Icons.refresh, size: 18),
+                    label: const Text('РЎР±СЂРѕСЃ'),
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.close),
+                    onPressed: () => Navigator.pop(context),
+                  ),
+                ],
+              ),
+              const Divider(),
+
+              // РўР°Р±Р»РёС†Р° СЃ С‡РµРєР±РѕРєСЃР°РјРё
+              if (_isLoading)
+                const Padding(
+                  padding: EdgeInsets.symmetric(vertical: 40),
+                  child: Center(child: CircularProgressIndicator()),
+                )
+              else
+                SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  child: DataTable(
+                    columnSpacing: 14,
+                    horizontalMargin: 8,
+                    headingRowHeight: 44,
+                    dataRowMinHeight: 44,
+                    dataRowMaxHeight: 48,
+                    border: TableBorder.all(
+                      color: Colors.grey.withValues(alpha: 0.25),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    columns: [
+                      const DataColumn(
+                        label: Text(
+                          'РџСЂРёРµРј',
+                          style: TextStyle(fontWeight: FontWeight.bold),
+                        ),
+                      ),
+                      ...days.map(
+                        (day) => DataColumn(
+                          label: Text(
+                            day,
+                            style: const TextStyle(fontWeight: FontWeight.bold),
+                          ),
+                        ),
+                      ),
+                    ],
+                    rows: List.generate(items.length, (rowIndex) {
+                      return DataRow(
+                        cells: [
+                          DataCell(
+                            Text(
+                              items[rowIndex],
+                              style: const TextStyle(
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                          ),
+                          ...List.generate(days.length, (colIndex) {
+                            return DataCell(
+                              Center(
+                                child: SizedBox(
+                                  width: 28,
+                                  height: 28,
+                                  child: Checkbox(
+                                    value: checks[rowIndex][colIndex],
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(4),
+                                    ),
+                                    onChanged: (bool? val) {
+                                      setState(() {
+                                        checks[rowIndex][colIndex] =
+                                            val ?? false;
+                                      });
+                                      _saveChecks();
+                                    },
+                                  ),
+                                ),
+                              ),
+                            );
+                          }),
+                        ],
+                      );
+                    }),
+                  ),
+                ),
+
+              const SizedBox(height: 16),
+
+              // Р РµРґР°РєС‚РёСЂСѓРµРјР°СЏ СЂР°РјРєР° РґР»СЏ РїСЂРёРјРµС‡Р°РЅРёР№
+              TextField(
+                controller: _notesController,
+                onChanged: _saveNotes,
+                minLines: 3,
+                maxLines: 6,
+                style: const TextStyle(fontSize: 14, height: 1.4),
+                decoration: InputDecoration(
+                  hintStyle: TextStyle(
+                    color: theme.textTheme.bodySmall?.color?.withValues(
+                      alpha: 0.5,
+                    ),
+                  ),
+                  filled: true,
+                  fillColor: theme.colorScheme.surfaceContainerHighest
+                      .withValues(alpha: 0.3),
+                  contentPadding: const EdgeInsets.all(12),
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: BorderSide(
+                      color: Colors.grey.withValues(alpha: 0.35),
+                    ),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: BorderSide(
+                      color: theme.colorScheme.primary,
+                      width: 1.5,
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+=== FILE: C:\Users\HONOR\calendar_app\lib\screens\task_details_screen.dart ===
+import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
+import '../models/task.dart';
+
+class TaskDetailsScreen extends StatelessWidget {
+  final Task task;
+  final Color categoryColor;
+  const TaskDetailsScreen({
+    super.key,
+    required this.task,
+    required this.categoryColor,
+  });
+
+  @override
+  Widget build(BuildContext context) => Scaffold(
+    appBar: AppBar(title: const Text('Р—Р°РґР°С‡Р°')),
+    body: ListView(
+      padding: const EdgeInsets.all(20),
+      children: [
+        Text(
+          task.title,
+          style: const TextStyle(fontSize: 28, fontWeight: FontWeight.w800),
+        ),
+        if (task.description.isNotEmpty) ...[
+          const SizedBox(height: 10),
+          Text(
+            task.description,
+            style: TextStyle(
+              fontSize: 17,
+              color: Theme.of(context).colorScheme.onSurfaceVariant,
+            ),
+          ),
+        ],
+        const SizedBox(height: 24),
+        _InfoCard(
+          icon: Icons.calendar_today_outlined,
+          label: 'Р”Р°С‚Р°',
+          value: task.date == null
+              ? 'РќРµ Р·Р°РґР°РЅР°'
+              : DateFormat('d MMMM y', 'ru_RU').format(task.date!),
+        ),
+        if (task.time != null)
+          _InfoCard(icon: Icons.access_time, label: 'Р’СЂРµРјСЏ', value: task.time!),
+        _InfoCard(
+          icon: Icons.circle,
+          iconColor: categoryColor,
+          label: 'РљР°С‚РµРіРѕСЂРёСЏ',
+          value: task.category,
+        ),
+        _InfoCard(
+          icon: Icons.flag_outlined,
+          label: 'РџСЂРёРѕСЂРёС‚РµС‚',
+          value: ['РќРёР·РєРёР№', 'РЎСЂРµРґРЅРёР№', 'Р’С‹СЃРѕРєРёР№'][task.priority - 1],
+        ),
+        _InfoCard(
+          icon: task.reminder
+              ? Icons.notifications_active_outlined
+              : Icons.notifications_off_outlined,
+          label: 'РќР°РїРѕРјРёРЅР°РЅРёРµ',
+          value: task.reminder ? 'Р’РєР»СЋС‡РµРЅРѕ' : 'Р’С‹РєР»СЋС‡РµРЅРѕ',
+        ),
+        _InfoCard(
+          icon: task.isCompleted
+              ? Icons.check_circle_outline
+              : Icons.radio_button_unchecked,
+          label: 'РЎС‚Р°С‚СѓСЃ',
+          value: task.isCompleted ? 'Р’С‹РїРѕР»РЅРµРЅРѕ' : 'РќРµ РІС‹РїРѕР»РЅРµРЅРѕ',
+        ),
+      ],
+    ),
+  );
+}
+
+class _InfoCard extends StatelessWidget {
+  final IconData icon;
+  final Color? iconColor;
+  final String label;
+  final String value;
+  const _InfoCard({
+    required this.icon,
+    this.iconColor,
+    required this.label,
+    required this.value,
+  });
+  @override
+  Widget build(BuildContext context) => Card(
+    child: ListTile(
+      leading: Icon(icon, color: iconColor),
+      title: Text(label),
+      subtitle: Text(value),
+    ),
+  );
+}
+=== FILE: C:\Users\HONOR\calendar_app\lib\services\life_sphere_storage.dart ===
+import 'dart:convert';
+
+import 'package:shared_preferences/shared_preferences.dart';
+
+import '../models/life_sphere.dart';
+
+class LifeSphereStorage {
+  static const _key = "life_spheres";
+
+  static Future<List<LifeSphere>> load() async {
+    final prefs = await SharedPreferences.getInstance();
+
+    final json = prefs.getString(_key);
+
+    if (json == null) {
+      return [
+        LifeSphere(
+          id: "health",
+          name: "Р—РґРѕСЂРѕРІСЊРµ",
+          emoji: "вќ¤пёЏ",
+          color: 0xFFE74C3C,
+        ),
+        LifeSphere(id: "work", name: "Р Р°Р±РѕС‚Р°", emoji: "рџ’ј", color: 0xFF3498DB),
+        LifeSphere(
+          id: "finance",
+          name: "Р¤РёРЅР°РЅСЃС‹",
+          emoji: "рџ’°",
+          color: 0xFFF1C40F,
+        ),
+      ];
+    }
+
+    final decoded = jsonDecode(json);
+
+    return (decoded as List).map((e) => LifeSphere.fromJson(e)).toList();
+  }
+
+  static Future<void> save(List<LifeSphere> list) async {
+    final prefs = await SharedPreferences.getInstance();
+
+    await prefs.setString(
+      _key,
+      jsonEncode(list.map((e) => e.toJson()).toList()),
+    );
+  }
+}
+=== FILE: C:\Users\HONOR\calendar_app\lib\services\note_folder_storage.dart ===
+import 'dart:convert';
+
+import 'package:shared_preferences/shared_preferences.dart';
+
+import '../models/note_folder.dart';
+
+/// Stores user-created note folders.
+///
+/// The `all` folder is a virtual system folder: it is always present first in
+/// the returned list and is never persisted as a user-editable item.
+class NoteFolderStorage {
+  static const String foldersKey = 'note_folders';
+  static const String allFolderId = 'all';
+  static const String allFolderName = 'Р’СЃРµ';
+
+  static NoteFolder get allFolder =>
+      NoteFolder(id: allFolderId, name: allFolderName);
+
+  static Future<List<NoteFolder>> load() async {
+    final prefs = await SharedPreferences.getInstance();
+    final rawFolders = prefs.getString(foldersKey);
+
+    if (rawFolders == null) {
+      return [allFolder];
+    }
+
+    try {
+      final decoded = jsonDecode(rawFolders);
+      if (decoded is! List) {
+        return [allFolder];
+      }
+
+      final folders = <NoteFolder>[];
+      for (final item in decoded) {
+        if (item is Map) {
+          folders.add(NoteFolder.fromJson(Map<String, dynamic>.from(item)));
+        }
+      }
+      return _normalize(folders);
+    } on FormatException {
+      return [allFolder];
+    } on TypeError {
+      return [allFolder];
+    }
+  }
+
+  static Future<void> save(Iterable<NoteFolder> folders) async {
+    final prefs = await SharedPreferences.getInstance();
+    final normalizedFolders = _normalize(folders);
+
+    await prefs.setString(
+      foldersKey,
+      jsonEncode(normalizedFolders.map((folder) => folder.toJson()).toList()),
+    );
+  }
+
+  static List<NoteFolder> _normalize(Iterable<NoteFolder> folders) {
+    final seenIds = <String>{allFolderId};
+    final normalizedFolders = <NoteFolder>[allFolder];
+
+    for (final folder in folders) {
+      final id = folder.id.trim();
+      final name = folder.name.trim();
+
+      if (id.isEmpty || id == allFolderId || name.isEmpty || !seenIds.add(id)) {
+        continue;
+      }
+
+      normalizedFolders.add(NoteFolder(id: id, name: name));
+    }
+
+    return normalizedFolders;
+  }
+}
+=== FILE: C:\Users\HONOR\calendar_app\lib\services\note_storage.dart ===
+import 'dart:convert';
+
+import 'package:shared_preferences/shared_preferences.dart';
+
+import '../models/note.dart';
+
+class NoteStorage {
+  static const String notesKey = "notes";
+
+  static Future<List<Note>> loadNotes() async {
+    final prefs = await SharedPreferences.getInstance();
+
+    final jsonString = prefs.getString(notesKey);
+
+    if (jsonString == null) {
+      return [];
+    }
+
+    final List decoded = jsonDecode(jsonString);
+
+    return decoded.map((e) => Note.fromJson(e)).toList();
+  }
+
+  static Future<void> saveNotes(List<Note> notes) async {
+    final prefs = await SharedPreferences.getInstance();
+
+    final jsonList = notes.map((e) => e.toJson()).toList();
+
+    await prefs.setString(notesKey, jsonEncode(jsonList));
+  }
+}
+=== FILE: C:\Users\HONOR\calendar_app\lib\services\storage_service.dart ===
+import 'dart:convert';
+import 'package:shared_preferences/shared_preferences.dart';
+import '../models/task.dart';
+import '../models/task_category.dart';
+
+class StorageService {
+  static Future<void> saveTasks(Map<String, List<Task>> tasks) async {
+    final prefs = await SharedPreferences.getInstance();
+
+    final jsonMap = tasks.map(
+      (key, value) =>
+          MapEntry(key, value.map((task) => task.toJson()).toList()),
+    );
+
+    await prefs.setString("tasks", jsonEncode(jsonMap));
+  }
+
+  static Future<Map<String, List<Task>>> loadTasks() async {
+    final prefs = await SharedPreferences.getInstance();
+
+    final json = prefs.getString("tasks");
+
+    if (json == null) {
+      return {};
+    }
+
+    final decoded = jsonDecode(json);
+
+    return decoded.map<String, List<Task>>(
+      (key, value) => MapEntry(
+        key,
+        (value as List).map((item) => Task.fromJson(item)).toList(),
+      ),
+    );
+  }
+
+  static const defaultCategories = [
+    TaskCategory(name: 'Р›РёС‡РЅРѕРµ', colorValue: 0xFF5E5CE6),
+    TaskCategory(name: 'Р Р°Р±РѕС‚Р°', colorValue: 0xFFFF9F0A),
+    TaskCategory(name: 'РЈС‡С‘Р±Р°', colorValue: 0xFF30D158),
+    TaskCategory(name: 'РџРѕРєСѓРїРєРё', colorValue: 0xFFFF375F),
+  ];
+
+  static Future<List<TaskCategory>> loadCategories() async {
+    final prefs = await SharedPreferences.getInstance();
+    final json = prefs.getString('categories');
+    if (json == null) return defaultCategories;
+    return (jsonDecode(json) as List)
+        .map((item) => TaskCategory.fromJson(item as Map<String, dynamic>))
+        .toList();
+  }
+
+  static Future<void> saveCategories(List<TaskCategory> categories) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(
+      'categories',
+      jsonEncode(categories.map((category) => category.toJson()).toList()),
+    );
+  }
+
+  static Future<bool> loadNotificationsEnabled() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getBool('notificationsEnabled') ?? true;
+  }
+
+  static Future<void> saveNotificationsEnabled(bool value) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool('notificationsEnabled', value);
+  }
+}
+=== FILE: C:\Users\HONOR\calendar_app\lib\widgets\add_task_sheet.dart ===
+import 'package:flutter/material.dart';
+import '../models/task.dart';
+import '../models/task_category.dart';
+import 'settings_tile.dart';
+import 'time_picker_sheet.dart';
+
+class AddTaskSheet extends StatefulWidget {
+  final DateTime initialDate;
+  final List<TaskCategory> categories;
+  final bool notificationsEnabled;
+  final ValueChanged<Task> onSave;
+  final ValueChanged<List<TaskCategory>> onCategoriesChanged;
+
+  const AddTaskSheet({
+    super.key,
+    required this.initialDate,
+    required this.categories,
+    required this.notificationsEnabled,
+    required this.onSave,
+    required this.onCategoriesChanged,
+  });
+
+  @override
+  State<AddTaskSheet> createState() => _AddTaskSheetState();
+}
+
+class _AddTaskSheetState extends State<AddTaskSheet> {
+  final _titleController = TextEditingController();
+  final _descriptionController = TextEditingController();
+  late DateTime _date;
+  TimeOfDay? _time;
+  late TaskCategory _category;
+  late List<TaskCategory> _categories;
+  int _priority = 1;
+  bool _reminder = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _date = widget.initialDate;
+    _categories = List.of(widget.categories);
+    _category = _categories.first;
+    _reminder = widget.notificationsEnabled;
+  }
+
+  @override
+  void dispose() {
+    _titleController.dispose();
+    _descriptionController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _selectCategory() async {
+    final result = await showModalBottomSheet<TaskCategory>(
+      context: context,
+      builder: (sheetContext) => _CategorySheet(categories: _categories),
+    );
+    if (result != null) setState(() => _category = result);
+  }
+
+  Future<void> _createCategory() async {
+    final controller = TextEditingController();
+    var color = Colors.blue;
+    final created = await showDialog<TaskCategory>(
+      context: context,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          title: const Text('РќРѕРІР°СЏ РєР°С‚РµРіРѕСЂРёСЏ'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: controller,
+                autofocus: true,
+                decoration: const InputDecoration(hintText: 'РќР°РїСЂРёРјРµСЂ, РЎРїРѕСЂС‚'),
+              ),
+              const SizedBox(height: 18),
+              Wrap(
+                spacing: 10,
+                runSpacing: 10,
+                children:
+                    [
+                          Colors.blue,
+                          Colors.purple,
+                          Colors.orange,
+                          Colors.green,
+                          Colors.red,
+                          Colors.teal,
+                          Colors.pink,
+                        ]
+                        .map(
+                          (item) => GestureDetector(
+                            onTap: () => setDialogState(() => color = item),
+                            child: CircleAvatar(
+                              backgroundColor: item,
+                              radius: color == item ? 17 : 14,
+                              child: color == item
+                                  ? const Icon(
+                                      Icons.check,
+                                      color: Colors.white,
+                                      size: 18,
+                                    )
+                                  : null,
+                            ),
+                          ),
+                        )
+                        .toList(),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('РћС‚РјРµРЅР°'),
+            ),
+            FilledButton(
+              onPressed: () {
+                final name = controller.text.trim();
+                if (name.isNotEmpty) {
+                  Navigator.pop(
+                    context,
+                    TaskCategory(name: name, colorValue: color.toARGB32()),
+                  );
+                }
+              },
+              child: const Text('Р”РѕР±Р°РІРёС‚СЊ'),
+            ),
+          ],
+        ),
+      ),
+    );
+    controller.dispose();
+    if (created == null) return;
+    final updated = [..._categories, created];
+    widget.onCategoriesChanged(updated);
+    setState(() {
+      _categories = updated;
+      _category = created;
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final bottom = MediaQuery.of(context).viewInsets.bottom;
+    return SafeArea(
+      child: Padding(
+        padding: EdgeInsets.fromLTRB(20, 20, 20, bottom + 20),
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Text(
+                'РќРѕРІР°СЏ Р·Р°РґР°С‡Р°',
+                style: TextStyle(fontSize: 23, fontWeight: FontWeight.w700),
+              ),
+              const SizedBox(height: 20),
+              TextField(
+                controller: _titleController,
+                autofocus: true,
+                textCapitalization: TextCapitalization.sentences,
+                decoration: const InputDecoration(
+                  labelText: 'РќР°Р·РІР°РЅРёРµ',
+                  border: OutlineInputBorder(),
+                ),
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: _descriptionController,
+                maxLines: 2,
+                textCapitalization: TextCapitalization.sentences,
+                decoration: const InputDecoration(
+                  labelText: 'Р—Р°РјРµС‚РєР°',
+                  border: OutlineInputBorder(),
+                ),
+              ),
+              const SizedBox(height: 12),
+              SettingsTile(
+                icon: Icons.calendar_today_outlined,
+                title: 'Р”Р°С‚Р°',
+                value:
+                    '${_date.day.toString().padLeft(2, '0')}.${_date.month.toString().padLeft(2, '0')}.${_date.year}',
+                onTap: () async {
+                  final value = await showDatePicker(
+                    context: context,
+                    initialDate: _date,
+                    firstDate: DateTime(2020),
+                    lastDate: DateTime(2100),
+                    locale: const Locale('ru'),
+                  );
+                  if (value != null) setState(() => _date = value);
+                },
+              ),
+              SettingsTile(
+                icon: Icons.access_time,
+                title: 'Р’СЂРµРјСЏ',
+                value: _time == null ? 'РќРµ Р·Р°РґР°РЅРѕ' : _time!.format(context),
+                onTap: () => showModalBottomSheet(
+                  context: context,
+                  builder: (_) => TimePickerSheet(
+                    initialTime: _time,
+                    onSelected: (time) => setState(() => _time = time),
+                  ),
+                ),
+              ),
+              SettingsTile(
+                icon: Icons.circle,
+                title: 'РљР°С‚РµРіРѕСЂРёСЏ',
+                value: _category.name,
+                onTap: _selectCategory,
+              ),
+              Align(
+                alignment: Alignment.centerLeft,
+                child: TextButton.icon(
+                  onPressed: _createCategory,
+                  icon: const Icon(Icons.add),
+                  label: const Text('РЎРѕР·РґР°С‚СЊ РєР°С‚РµРіРѕСЂРёСЋ'),
+                ),
+              ),
+              SettingsTile(
+                icon: Icons.flag_outlined,
+                title: 'РџСЂРёРѕСЂРёС‚РµС‚',
+                value: ['РќРёР·РєРёР№', 'РЎСЂРµРґРЅРёР№', 'Р’С‹СЃРѕРєРёР№'][_priority - 1],
+                onTap: () async {
+                  final value = await showModalBottomSheet<int>(
+                    context: context,
+                    builder: (context) => SafeArea(
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: List.generate(
+                          3,
+                          (i) => ListTile(
+                            title: Text(['РќРёР·РєРёР№', 'РЎСЂРµРґРЅРёР№', 'Р’С‹СЃРѕРєРёР№'][i]),
+                            onTap: () => Navigator.pop(context, i + 1),
+                          ),
+                        ),
+                      ),
+                    ),
+                  );
+                  if (value != null) setState(() => _priority = value);
+                },
+              ),
+              SwitchListTile.adaptive(
+                contentPadding: const EdgeInsets.symmetric(horizontal: 8),
+                secondary: const Icon(Icons.notifications_outlined),
+                title: const Text('РќР°РїРѕРјРёРЅР°РЅРёРµ'),
+                subtitle: Text(
+                  _time == null
+                      ? 'Р’С‹Р±РµСЂРёС‚Рµ РІСЂРµРјСЏ РґР»СЏ РЅР°РїРѕРјРёРЅР°РЅРёСЏ'
+                      : 'Р’ РјРѕРјРµРЅС‚ РЅР°С‡Р°Р»Р° Р·Р°РґР°С‡Рё',
+                ),
+                value: _reminder,
+                onChanged: !widget.notificationsEnabled || _time == null
+                    ? null
+                    : (value) => setState(() => _reminder = value),
+              ),
+              const SizedBox(height: 12),
+              SizedBox(
+                width: double.infinity,
+                child: FilledButton(
+                  onPressed: () {
+                    if (_titleController.text.trim().isEmpty) return;
+                    widget.onSave(
+                      Task(
+                        title: _titleController.text.trim(),
+                        description: _descriptionController.text.trim(),
+                        date: _date,
+                        time: _time == null
+                            ? null
+                            : '${_time!.hour.toString().padLeft(2, '0')}:${_time!.minute.toString().padLeft(2, '0')}',
+                        category: _category.name,
+                        priority: _priority,
+                        reminder: _reminder && _time != null,
+                      ),
+                    );
+                    Navigator.pop(context);
+                  },
+                  child: const Text('РЎРѕС…СЂР°РЅРёС‚СЊ'),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _CategorySheet extends StatelessWidget {
+  final List<TaskCategory> categories;
+  const _CategorySheet({required this.categories});
+
+  @override
+  Widget build(BuildContext context) => SafeArea(
+    child: Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        const Padding(
+          padding: EdgeInsets.all(16),
+          child: Text(
+            'РљР°С‚РµРіРѕСЂРёСЏ',
+            style: TextStyle(fontSize: 20, fontWeight: FontWeight.w700),
+          ),
+        ),
+        ...categories.map(
+          (category) => ListTile(
+            leading: CircleAvatar(backgroundColor: category.color, radius: 10),
+            title: Text(category.name),
+            onTap: () => Navigator.pop(context, category),
+          ),
+        ),
+        const SizedBox(height: 8),
+      ],
+    ),
+  );
+}
+=== FILE: C:\Users\HONOR\calendar_app\lib\widgets\create_sphere_sheet.dart ===
+// ignore_for_file: deprecated_member_use
+
+import 'package:flutter/material.dart';
+import 'emoji_picker_sheet.dart';
+import '../models/life_sphere.dart';
+
+class CreateSphereSheet extends StatefulWidget {
+  final LifeSphere? sphere;
+
+  const CreateSphereSheet({super.key, this.sphere});
+
+  @override
+  State<CreateSphereSheet> createState() => _CreateSphereSheetState();
+}
+
+class _CreateSphereSheetState extends State<CreateSphereSheet> {
+  final controller = TextEditingController();
+
+  String emoji = "рџЉ";
+
+  int color = Colors.blue.value;
+
+  final colors = [
+    Colors.red,
+    Colors.orange,
+    Colors.amber,
+    Colors.green,
+    Colors.teal,
+    Colors.blue,
+    Colors.indigo,
+    Colors.purple,
+    Colors.pink,
+    Colors.brown,
+  ];
+
+  final emojis = [
+    "вќ¤пёЏ",
+    "рџ’°",
+    "рџ’ј",
+    "рџЏѓ",
+    "рџ“љ",
+    "рџЏЎ",
+    "рџЋ®",
+    "вњ€пёЏ",
+    "рџЋµ",
+    "рџЌ”",
+    "рџљ—",
+    "рџђ¶",
+    "в­ђ",
+    "рџЉ",
+    "рџЊ™",
+    "рџ”Ґ",
+  ];
+  @override
+  void initState() {
+    super.initState();
+
+    if (widget.sphere != null) {
+      controller.text = widget.sphere!.name;
+      emoji = widget.sphere!.emoji;
+      color = widget.sphere!.color;
+    }
+    controller.addListener(() {
+      setState(() {});
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return SafeArea(
+      child: Padding(
+        padding: const EdgeInsets.all(20),
+
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+
+            children: [
+              Text(
+                widget.sphere == null ? "РќРѕРІР°СЏ СЃС„РµСЂР°" : "Р РµРґР°РєС‚РёСЂРѕРІР°С‚СЊ СЃС„РµСЂСѓ",
+                style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold),
+              ),
+
+              const SizedBox(height: 25),
+
+              TextField(
+                controller: controller,
+                decoration: const InputDecoration(hintText: "РќР°Р·РІР°РЅРёРµ"),
+              ),
+
+              const SizedBox(height: 25),
+
+              const Align(
+                alignment: Alignment.centerLeft,
+                child: Text(
+                  "Р­РјРѕРґР·Рё",
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
+                ),
+              ),
+
+              const SizedBox(height: 10),
+
+              Center(
+                child: GestureDetector(
+                  onTap: () async {
+                    showModalBottomSheet(
+                      context: context,
+                      builder: (_) {
+                        return EmojiPickerSheet(
+                          onSelected: (value) {
+                            setState(() {
+                              emoji = value;
+                            });
+                          },
+                        );
+                      },
+                    );
+                  },
+
+                  child: AnimatedContainer(
+                    duration: const Duration(milliseconds: 200),
+
+                    width: 90,
+                    height: 90,
+
+                    alignment: Alignment.center,
+
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(24),
+                    ),
+
+                    child: Text(emoji, style: const TextStyle(fontSize: 46)),
+                  ),
+                ),
+              ),
+
+              const SizedBox(height: 30),
+
+              const Align(
+                alignment: Alignment.centerLeft,
+                child: Text(
+                  "Р¦РІРµС‚",
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
+                ),
+              ),
+              const SizedBox(height: 35),
+
+              const Divider(),
+
+              const SizedBox(height: 25),
+
+              const Text(
+                "РџСЂРµРґРїСЂРѕСЃРјРѕС‚СЂ",
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
+              ),
+
+              const SizedBox(height: 16),
+
+              Container(
+                padding: const EdgeInsets.all(18),
+
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(20),
+                ),
+
+                child: Row(
+                  children: [
+                    CircleAvatar(
+                      radius: 26,
+                      backgroundColor: Color(color),
+
+                      child: Text(emoji, style: const TextStyle(fontSize: 24)),
+                    ),
+
+                    const SizedBox(width: 18),
+
+                    Expanded(
+                      child: Text(
+                        controller.text.isEmpty
+                            ? "РќР°Р·РІР°РЅРёРµ СЃС„РµСЂС‹"
+                            : controller.text,
+                        style: const TextStyle(
+                          fontSize: 20,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 10),
+
+              SizedBox(
+                height: 72,
+                child: ListView.separated(
+                  scrollDirection: Axis.horizontal,
+                  itemCount: colors.length,
+                  separatorBuilder: (_, _) => const SizedBox(width: 14),
+
+                  itemBuilder: (context, index) {
+                    final c = colors[index];
+
+                    final selected = c.value == color;
+
+                    return GestureDetector(
+                      onTap: () {
+                        setState(() {
+                          color = c.value;
+                        });
+                      },
+
+                      child: AnimatedContainer(
+                        duration: const Duration(milliseconds: 180),
+
+                        width: selected ? 62 : 54,
+                        height: selected ? 62 : 54,
+
+                        decoration: BoxDecoration(
+                          color: c,
+                          borderRadius: BorderRadius.circular(18),
+
+                          boxShadow: [
+                            BoxShadow(
+                              color: c.withOpacity(.35),
+                              blurRadius: selected ? 18 : 8,
+                              offset: const Offset(0, 6),
+                            ),
+                          ],
+
+                          border: Border.all(
+                            color: selected ? Colors.white : Colors.transparent,
+                            width: 3,
+                          ),
+                        ),
+
+                        child: selected
+                            ? const Icon(Icons.check, color: Colors.white)
+                            : null,
+                      ),
+                    );
+                  },
+                ),
+              ),
+
+              const SizedBox(height: 35),
+
+              SizedBox(
+                width: double.infinity,
+
+                child: FilledButton(
+                  onPressed: () {
+                    if (controller.text.trim().isEmpty) return;
+
+                    Navigator.pop(
+                      context,
+                      LifeSphere(
+                        id:
+                            widget.sphere?.id ??
+                            DateTime.now().millisecondsSinceEpoch.toString(),
+                        name: controller.text.trim(),
+                        emoji: emoji,
+                        color: color,
+                      ),
+                    );
+                  },
+
+                  child: Text(widget.sphere == null ? "РЎРѕР·РґР°С‚СЊ" : "РЎРѕС…СЂР°РЅРёС‚СЊ"),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+=== FILE: C:\Users\HONOR\calendar_app\lib\widgets\emoji_picker_sheet.dart ===
+import 'package:flutter/material.dart';
+import 'package:emoji_picker_flutter/emoji_picker_flutter.dart';
+
+class EmojiPickerSheet extends StatelessWidget {
+  final Function(String) onSelected;
+
+  const EmojiPickerSheet({super.key, required this.onSelected});
+
+  @override
+  Widget build(BuildContext context) {
+    return SafeArea(
+      child: SizedBox(
+        height: 420,
+        child: EmojiPicker(
+          onEmojiSelected: (_, emoji) {
+            onSelected(emoji.emoji);
+            Navigator.pop(context);
+          },
+          config: const Config(height: 420, checkPlatformCompatibility: true),
+        ),
+      ),
+    );
+  }
+}
+=== FILE: C:\Users\HONOR\calendar_app\lib\widgets\move_note_to_folder_sheet.dart ===
+import 'package:flutter/material.dart';
+
+import '../models/note_folder.dart';
+import '../services/note_folder_storage.dart';
+
+/// Lets the user select an existing note folder or create one for the note.
+///
+/// The selected folder is returned through [Navigator.pop].
+class MoveNoteToFolderSheet extends StatefulWidget {
+  final String? selectedFolderId;
+
+  const MoveNoteToFolderSheet({super.key, this.selectedFolderId});
+
+  @override
+  State<MoveNoteToFolderSheet> createState() => _MoveNoteToFolderSheetState();
+}
+
+class _MoveNoteToFolderSheetState extends State<MoveNoteToFolderSheet> {
+  final _folderNameController = TextEditingController();
+
+  List<NoteFolder> _folders = [];
+  bool _isLoading = true;
+  bool _isCreating = false;
+  bool _isSaving = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadFolders();
+  }
+
+  @override
+  void dispose() {
+    _folderNameController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _loadFolders() async {
+    final folders = await NoteFolderStorage.load();
+    if (!mounted) return;
+
+    setState(() {
+      _folders = folders;
+      _isLoading = false;
+    });
+  }
+
+  Future<void> _createFolder() async {
+    final name = _folderNameController.text.trim();
+    if (name.isEmpty || _isSaving) return;
+
+    for (final folder in _folders) {
+      if (folder.name.toLowerCase() == name.toLowerCase()) {
+        Navigator.pop(context, folder);
+        return;
+      }
+    }
+
+    final newFolder = NoteFolder(
+      id: 'folder_${DateTime.now().microsecondsSinceEpoch}',
+      name: name,
+    );
+
+    setState(() => _isSaving = true);
+    try {
+      await NoteFolderStorage.save([..._folders, newFolder]);
+      if (!mounted) return;
+      Navigator.pop(context, newFolder);
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _isSaving = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('РќРµ СѓРґР°Р»РѕСЃСЊ СЃРѕС…СЂР°РЅРёС‚СЊ РіСЂСѓРїРїСѓ')),
+      );
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final bottomInset = MediaQuery.viewInsetsOf(context).bottom;
+
+    return SafeArea(
+      child: Padding(
+        padding: EdgeInsets.fromLTRB(20, 12, 20, bottomInset + 20),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 42,
+              height: 5,
+              decoration: BoxDecoration(
+                color: Colors.grey.shade400,
+                borderRadius: BorderRadius.circular(99),
+              ),
+            ),
+            const SizedBox(height: 16),
+            Row(
+              children: [
+                const Expanded(
+                  child: Text(
+                    'РџРµСЂРµРјРµСЃС‚РёС‚СЊ РІ РіСЂСѓРїРїСѓ',
+                    style: TextStyle(fontSize: 23, fontWeight: FontWeight.w700),
+                  ),
+                ),
+                IconButton(
+                  onPressed: () => Navigator.pop(context),
+                  icon: const Icon(Icons.close),
+                  tooltip: 'Р—Р°РєСЂС‹С‚СЊ',
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            if (_isLoading)
+              const Padding(
+                padding: EdgeInsets.all(28),
+                child: CircularProgressIndicator(),
+              )
+            else ...[
+              ConstrainedBox(
+                constraints: const BoxConstraints(maxHeight: 280),
+                child: ListView.separated(
+                  shrinkWrap: true,
+                  itemCount: _folders.length,
+                  separatorBuilder: (_, _) => const SizedBox(height: 8),
+                  itemBuilder: (context, index) {
+                    final folder = _folders[index];
+                    final selected = folder.id == widget.selectedFolderId;
+
+                    return Card(
+                      margin: EdgeInsets.zero,
+                      color: selected
+                          ? Theme.of(context).colorScheme.primaryContainer
+                          : null,
+                      child: ListTile(
+                        leading: Icon(
+                          folder.id == NoteFolderStorage.allFolderId
+                              ? Icons.folder_special_outlined
+                              : Icons.folder_outlined,
+                        ),
+                        title: Text(
+                          folder.name,
+                          style: const TextStyle(fontWeight: FontWeight.w600),
+                        ),
+                        subtitle: folder.id == NoteFolderStorage.allFolderId
+                            ? const Text('Р’СЃРµ Р·Р°РјРµС‚РєРё')
+                            : null,
+                        trailing: selected
+                            ? Icon(
+                                Icons.check_circle,
+                                color: Theme.of(context).colorScheme.primary,
+                              )
+                            : const Icon(Icons.chevron_right),
+                        onTap: () => Navigator.pop(context, folder),
+                      ),
+                    );
+                  },
+                ),
+              ),
+              const SizedBox(height: 12),
+              if (_isCreating) ...[
+                TextField(
+                  controller: _folderNameController,
+                  autofocus: true,
+                  textCapitalization: TextCapitalization.sentences,
+                  textInputAction: TextInputAction.done,
+                  onSubmitted: (_) => _createFolder(),
+                  decoration: const InputDecoration(
+                    hintText: 'РќР°Р·РІР°РЅРёРµ РЅРѕРІРѕР№ РіСЂСѓРїРїС‹',
+                    prefixIcon: Icon(Icons.create_new_folder_outlined),
+                  ),
+                ),
+                const SizedBox(height: 10),
+                Row(
+                  children: [
+                    TextButton(
+                      onPressed: _isSaving
+                          ? null
+                          : () {
+                              setState(() {
+                                _isCreating = false;
+                                _folderNameController.clear();
+                              });
+                            },
+                      child: const Text('РћС‚РјРµРЅР°'),
+                    ),
+                    const Spacer(),
+                    FilledButton(
+                      onPressed: _isSaving ? null : _createFolder,
+                      child: Text(_isSaving ? 'РЎРѕС…СЂР°РЅСЏРµРј...' : 'РЎРѕР·РґР°С‚СЊ'),
+                    ),
+                  ],
+                ),
+              ] else
+                SizedBox(
+                  width: double.infinity,
+                  child: OutlinedButton.icon(
+                    onPressed: () => setState(() => _isCreating = true),
+                    icon: const Icon(Icons.add),
+                    label: const Text('РЎРѕР·РґР°С‚СЊ РіСЂСѓРїРїСѓ'),
+                  ),
+                ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+}
+=== FILE: C:\Users\HONOR\calendar_app\lib\widgets\note_actions_sheet.dart ===
+import 'package:flutter/material.dart';
+
+class NoteActionsSheet extends StatelessWidget {
+  final VoidCallback onEdit;
+  final VoidCallback onFolder;
+  final VoidCallback onSphere;
+  final VoidCallback onDuplicate;
+  final VoidCallback onDelete;
+
+  const NoteActionsSheet({
+    super.key,
+    required this.onEdit,
+    required this.onFolder,
+    required this.onSphere,
+    required this.onDuplicate,
+    required this.onDelete,
+  });
+
+  Widget item(IconData icon, String title, VoidCallback onTap, {Color? color}) {
+    return ListTile(
+      leading: Icon(icon, color: color),
+      title: Text(title, style: TextStyle(color: color)),
+      onTap: onTap,
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return SafeArea(
+      child: Padding(
+        padding: const EdgeInsets.only(top: 15, bottom: 20),
+
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+
+          children: [
+            Container(
+              width: 45,
+              height: 5,
+              decoration: BoxDecoration(
+                color: Colors.grey.shade300,
+                borderRadius: BorderRadius.circular(20),
+              ),
+            ),
+
+            const SizedBox(height: 20),
+
+            item(Icons.edit_outlined, "Р РµРґР°РєС‚РёСЂРѕРІР°С‚СЊ", onEdit),
+
+            item(Icons.folder_copy_outlined, "РџРµСЂРµРјРµСЃС‚РёС‚СЊ РІ РіСЂСѓРїРїСѓ", onFolder),
+
+            item(Icons.blur_circular, "РР·РјРµРЅРёС‚СЊ СЃС„РµСЂСѓ", onSphere),
+
+            item(Icons.copy_outlined, "РЎРѕР·РґР°С‚СЊ РєРѕРїРёСЋ", onDuplicate),
+
+            const Divider(),
+
+            item(Icons.delete_outline, "РЈРґР°Р»РёС‚СЊ", onDelete, color: Colors.red),
+          ],
+        ),
+      ),
+    );
+  }
+}
+=== FILE: C:\Users\HONOR\calendar_app\lib\widgets\note_block_widget.dart ===
+import 'package:flutter/material.dart';
+import '../models/note_block.dart';
+
+class NoteBlockWidget extends StatelessWidget {
+  final NoteBlock block;
+  final TextEditingController controller;
+  final ValueChanged<String> onChanged;
+  final VoidCallback? onTapCheckbox;
+
+  const NoteBlockWidget({
+    super.key,
+    required this.block,
+    required this.controller,
+    required this.onChanged,
+    this.onTapCheckbox,
+  });
+
+  TextStyle get textStyle {
+    TextDecoration? decoration;
+
+    if (block.isUnderlined && block.isStruckThrough) {
+      decoration = TextDecoration.combine([
+        TextDecoration.underline,
+        TextDecoration.lineThrough,
+      ]);
+    } else if (block.isUnderlined) {
+      decoration = TextDecoration.underline;
+    } else if (block.isStruckThrough) {
+      decoration = TextDecoration.lineThrough;
+    }
+
+    double size = block.fontSize;
+
+    if (block.type == NoteBlockType.heading1) {
+      size = 30;
+    }
+
+    if (block.type == NoteBlockType.heading2) {
+      size = 24;
+    }
+
+    return TextStyle(
+      fontSize: size,
+      color: Color(block.colorValue),
+      fontWeight:
+          block.isBold ||
+              block.type == NoteBlockType.heading1 ||
+              block.type == NoteBlockType.heading2
+          ? FontWeight.bold
+          : FontWeight.normal,
+      fontStyle: block.isItalic ? FontStyle.italic : FontStyle.normal,
+      decoration: decoration,
+      height: 1.45,
+    );
+  }
+
+  Widget buildTextField() {
+    return TextField(
+      controller: controller,
+      onChanged: onChanged,
+      maxLines: null,
+      keyboardType: TextInputType.multiline,
+      decoration: const InputDecoration(
+        border: InputBorder.none,
+        isDense: true,
+        contentPadding: EdgeInsets.zero,
+      ),
+      style: textStyle,
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    switch (block.type) {
+      case NoteBlockType.checklist:
+        return Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Checkbox(
+              value: block.isChecked,
+              onChanged: (_) => onTapCheckbox?.call(),
+            ),
+            Expanded(child: buildTextField()),
+          ],
+        );
+
+      case NoteBlockType.numbered:
+        return Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Padding(
+              padding: EdgeInsets.only(top: 4),
+              child: Text(
+                '1.',
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
+              ),
+            ),
+            const SizedBox(width: 10),
+            Expanded(child: buildTextField()),
+          ],
+        );
+
+      case NoteBlockType.quote:
+        return Container(
+          width: double.infinity,
+          padding: const EdgeInsets.only(left: 14, top: 4, bottom: 4),
+          decoration: const BoxDecoration(
+            border: Border(
+              left: BorderSide(width: 4, color: Color(0xFF8E8E93)),
+            ),
+          ),
+          child: buildTextField(),
+        );
+
+      case NoteBlockType.code:
+        return Container(
+          width: double.infinity,
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: const Color(0xFFF1F1F3),
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: buildTextField(),
+        );
+
+      case NoteBlockType.divider:
+        return const Padding(
+          padding: EdgeInsets.symmetric(vertical: 10),
+          child: Divider(),
+        );
+
+      case NoteBlockType.image:
+        return Container(
+          height: 160,
+          width: double.infinity,
+          alignment: Alignment.center,
+          decoration: BoxDecoration(
+            color: Colors.grey.shade200,
+            borderRadius: BorderRadius.circular(14),
+          ),
+          child: const Icon(Icons.image_outlined, size: 40, color: Colors.grey),
+        );
+
+      case NoteBlockType.table:
+        return Container(
+          height: 100,
+          width: double.infinity,
+          alignment: Alignment.center,
+          decoration: BoxDecoration(
+            border: Border.all(color: Colors.grey.shade300),
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: const Text('РўР°Р±Р»РёС†Р°'),
+        );
+
+      case NoteBlockType.drawing:
+        return Container(
+          height: 160,
+          width: double.infinity,
+          alignment: Alignment.center,
+          decoration: BoxDecoration(
+            color: Colors.grey.shade100,
+            borderRadius: BorderRadius.circular(14),
+          ),
+          child: const Icon(Icons.draw_outlined, size: 40, color: Colors.grey),
+        );
+
+      case NoteBlockType.audio:
+        return Container(
+          height: 60,
+          width: double.infinity,
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          decoration: BoxDecoration(
+            color: Colors.grey.shade100,
+            borderRadius: BorderRadius.circular(14),
+          ),
+          child: const Row(
+            children: [
+              Icon(Icons.play_circle_outline),
+              SizedBox(width: 12),
+              Text('РђСѓРґРёРѕР·Р°РїРёСЃСЊ'),
+            ],
+          ),
+        );
+
+      case NoteBlockType.heading1:
+      case NoteBlockType.heading2:
+      case NoteBlockType.paragraph:
+        return buildTextField();
+    }
+  }
+}
+=== FILE: C:\Users\HONOR\calendar_app\lib\widgets\note_card.dart ===
+import 'package:flutter/material.dart';
+
+import '../models/note.dart';
+import '../models/life_sphere.dart';
+import '../services/life_sphere_storage.dart';
+
+class NoteCard extends StatefulWidget {
+  final Note note;
+  final VoidCallback onTap;
+  final VoidCallback onLongPress;
+
+  const NoteCard({
+    super.key,
+    required this.note,
+    required this.onTap,
+    required this.onLongPress,
+  });
+
+  @override
+  State<NoteCard> createState() => _NoteCardState();
+}
+
+class _NoteCardState extends State<NoteCard> {
+  List<LifeSphere> spheres = [];
+
+  @override
+  void initState() {
+    super.initState();
+    loadSpheres();
+  }
+
+  Future<void> loadSpheres() async {
+    spheres = await LifeSphereStorage.load();
+
+    if (mounted) {
+      setState(() {});
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final note = widget.note;
+
+    final noteSpheres = spheres
+        .where((sphere) => note.sphereIds.contains(sphere.id))
+        .toList();
+
+    return Card(
+      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(18),
+        onTap: widget.onTap,
+        onLongPress: widget.onLongPress,
+        child: Padding(
+          padding: const EdgeInsets.all(18),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                note.title.isEmpty ? "Р‘РµР· РЅР°Р·РІР°РЅРёСЏ" : note.title,
+                style: const TextStyle(
+                  fontSize: 21,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+
+              const SizedBox(height: 8),
+
+              if (note.content.isNotEmpty)
+                Text(
+                  note.content,
+                  maxLines: 3,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(color: Colors.grey.shade700, height: 1.5),
+                ),
+
+              const SizedBox(height: 15),
+
+              Row(
+                children: [
+                  Icon(Icons.schedule, color: Colors.grey.shade500, size: 18),
+
+                  const SizedBox(width: 6),
+
+                  Text(
+                    "${note.updatedAt.day.toString().padLeft(2, '0')}.${note.updatedAt.month.toString().padLeft(2, '0')}.${note.updatedAt.year}",
+                    style: TextStyle(color: Colors.grey.shade600),
+                  ),
+
+                  const Spacer(),
+                ],
+              ),
+              if (noteSpheres.isNotEmpty) ...[
+                const SizedBox(height: 12),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: noteSpheres.map((sphere) {
+                    final color = Color(sphere.color);
+                    return Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 5,
+                      ),
+                      decoration: BoxDecoration(
+                        color: color.withValues(alpha: .14),
+                        borderRadius: BorderRadius.circular(99),
+                      ),
+                      child: Text(
+                        '${sphere.emoji} ${sphere.name}',
+                        style: TextStyle(
+                          color: color,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    );
+                  }).toList(),
+                ),
+              ],
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+=== FILE: C:\Users\HONOR\calendar_app\lib\widgets\note_toolbar.dart ===
+import 'package:flutter/material.dart';
+
+class NoteToolbar extends StatelessWidget {
+  final VoidCallback onSphere;
+  final VoidCallback onBold;
+  final VoidCallback onItalic;
+  final VoidCallback onUnderline;
+  final VoidCallback onStrike;
+  final VoidCallback onColor;
+  final VoidCallback onFont;
+  final VoidCallback onChecklist;
+  final VoidCallback onNumbers;
+
+  final VoidCallback onUndo;
+  final VoidCallback onRedo;
+
+  final bool boldActive;
+  final bool italicActive;
+  final bool underlineActive;
+  final bool strikeActive;
+
+  final bool undoAvailable;
+  final bool redoAvailable;
+
+  const NoteToolbar({
+    super.key,
+    required this.onSphere,
+    required this.onBold,
+    required this.onItalic,
+    required this.onUnderline,
+    required this.onStrike,
+    required this.onColor,
+    required this.onFont,
+    required this.onChecklist,
+    required this.onNumbers,
+    required this.onUndo,
+    required this.onRedo,
+    this.boldActive = false,
+    this.italicActive = false,
+    this.underlineActive = false,
+    this.strikeActive = false,
+    this.undoAvailable = false,
+    this.redoAvailable = false,
+  });
+
+  Widget _button({
+    required BuildContext context,
+    required IconData icon,
+    required VoidCallback onPressed,
+    bool active = false,
+    bool enabled = true,
+  }) {
+    final theme = Theme.of(context);
+
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 160),
+      width: 44,
+      height: 44,
+      decoration: BoxDecoration(
+        color: active
+            ? theme.colorScheme.primary.withValues(alpha: 0.12)
+            : Colors.transparent,
+        borderRadius: BorderRadius.circular(13),
+      ),
+      child: IconButton(
+        onPressed: enabled ? onPressed : null,
+        tooltip: null,
+        splashRadius: 22,
+        icon: Icon(
+          icon,
+          size: 21,
+          color: enabled
+              ? (active
+                    ? theme.colorScheme.primary
+                    : theme.colorScheme.onSurfaceVariant)
+              : theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.30),
+        ),
+      ),
+    );
+  }
+
+  Widget _divider(BuildContext context) {
+    return Container(
+      width: 1,
+      height: 25,
+      color: Theme.of(context).colorScheme.outline.withValues(alpha: 0.15),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Theme.of(context).scaffoldBackgroundColor,
+      child: SafeArea(
+        top: false,
+        child: Container(
+          padding: const EdgeInsets.fromLTRB(10, 8, 10, 8),
+          decoration: BoxDecoration(
+            color: Theme.of(context).colorScheme.surface,
+            border: Border(
+              top: BorderSide(
+                color: Theme.of(
+                  context,
+                ).colorScheme.outline.withValues(alpha: 0.10),
+              ),
+            ),
+          ),
+          child: SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: Row(
+              children: [
+                // Undo
+                _button(
+                  context: context,
+                  icon: Icons.undo_rounded,
+                  onPressed: onUndo,
+                  enabled: undoAvailable,
+                ),
+
+                // Redo
+                _button(
+                  context: context,
+                  icon: Icons.redo_rounded,
+                  onPressed: onRedo,
+                  enabled: redoAvailable,
+                ),
+
+                const SizedBox(width: 4),
+
+                _divider(context),
+
+                const SizedBox(width: 4),
+
+                OutlinedButton.icon(
+                  onPressed: onSphere,
+                  icon: const Icon(Icons.blur_circular_outlined, size: 19),
+                  label: const Text('РЎС„РµСЂР°'),
+                  style: OutlinedButton.styleFrom(
+                    shape: const StadiumBorder(),
+                    padding: const EdgeInsets.symmetric(horizontal: 12),
+                    minimumSize: const Size(0, 44),
+                  ),
+                ),
+
+                const SizedBox(width: 4),
+
+                _divider(context),
+
+                const SizedBox(width: 4),
+
+                // Formatting
+                _button(
+                  context: context,
+                  icon: Icons.format_bold,
+                  onPressed: onBold,
+                  active: boldActive,
+                ),
+
+                _button(
+                  context: context,
+                  icon: Icons.format_italic,
+                  onPressed: onItalic,
+                  active: italicActive,
+                ),
+
+                _button(
+                  context: context,
+                  icon: Icons.format_underlined,
+                  onPressed: onUnderline,
+                  active: underlineActive,
+                ),
+
+                _button(
+                  context: context,
+                  icon: Icons.format_strikethrough,
+                  onPressed: onStrike,
+                  active: strikeActive,
+                ),
+
+                const SizedBox(width: 4),
+
+                _divider(context),
+
+                const SizedBox(width: 4),
+
+                // Lists
+                _button(
+                  context: context,
+                  icon: Icons.checklist_rounded,
+                  onPressed: onChecklist,
+                ),
+
+                _button(
+                  context: context,
+                  icon: Icons.format_list_numbered_rounded,
+                  onPressed: onNumbers,
+                ),
+
+                _button(
+                  context: context,
+                  icon: Icons.text_fields_rounded,
+                  onPressed: onFont,
+                ),
+
+                // Color
+                _button(
+                  context: context,
+                  icon: Icons.palette_outlined,
+                  onPressed: onColor,
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+=== FILE: C:\Users\HONOR\calendar_app\lib\widgets\select_spheres_sheet.dart ===
+import 'package:flutter/material.dart';
+import '../models/life_sphere.dart';
+import '../services/life_sphere_storage.dart';
+import 'create_sphere_sheet.dart';
+
+class SelectSpheresSheet extends StatefulWidget {
+  final List<String> selected;
+
+  const SelectSpheresSheet({super.key, required this.selected});
+
+  @override
+  State<SelectSpheresSheet> createState() => _SelectSpheresSheetState();
+}
+
+class _SelectSpheresSheetState extends State<SelectSpheresSheet> {
+  List<LifeSphere> spheres = [];
+
+  late List<String> selectedIds;
+
+  @override
+  void initState() {
+    super.initState();
+
+    selectedIds = List.from(widget.selected);
+
+    load();
+  }
+
+  Future<void> load() async {
+    final loadedSpheres = await LifeSphereStorage.load();
+
+    if (!mounted) return;
+
+    setState(() {
+      spheres = loadedSpheres;
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return SafeArea(
+      child: Container(
+        decoration: const BoxDecoration(
+          color: Color(0xffF7F7FB),
+          borderRadius: BorderRadius.vertical(top: Radius.circular(30)),
+        ),
+
+        child: Padding(
+          padding: const EdgeInsets.all(20),
+
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+
+            children: [
+              Container(
+                width: 45,
+                height: 5,
+                decoration: BoxDecoration(
+                  color: Colors.grey.shade400,
+                  borderRadius: BorderRadius.circular(20),
+                ),
+              ),
+
+              const SizedBox(height: 20),
+
+              const Text(
+                "РЎС„РµСЂС‹ Р¶РёР·РЅРё",
+                style: TextStyle(fontSize: 28, fontWeight: FontWeight.w700),
+              ),
+
+              const SizedBox(height: 20),
+
+              Align(
+                alignment: Alignment.centerLeft,
+                child: Wrap(
+                  spacing: 10,
+                  runSpacing: 10,
+                  children: spheres.map(buildSphere).toList(),
+                ),
+              ),
+
+              const SizedBox(height: 12),
+
+              FilledButton.icon(
+                onPressed: () async {
+                  final sphere = await showModalBottomSheet<LifeSphere>(
+                    context: context,
+                    isScrollControlled: true,
+                    builder: (_) => const CreateSphereSheet(),
+                  );
+
+                  if (sphere != null) {
+                    spheres.add(sphere);
+
+                    await LifeSphereStorage.save(spheres);
+
+                    setState(() {});
+                  }
+                },
+
+                icon: const Icon(Icons.add),
+
+                label: const Text("РЎРѕР·РґР°С‚СЊ СЃС„РµСЂСѓ"),
+              ),
+
+              const SizedBox(height: 12),
+
+              SizedBox(
+                width: double.infinity,
+
+                child: FilledButton(
+                  onPressed: () {
+                    Navigator.pop(context, selectedIds);
+                  },
+
+                  child: const Text("Р“РѕС‚РѕРІРѕ"),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget buildSphere(LifeSphere sphere) {
+    final selected = selectedIds.contains(sphere.id);
+
+    final color = Color(sphere.color);
+    return ChoiceChip(
+      avatar: Text(sphere.emoji),
+      label: Text(sphere.name),
+      selected: selected,
+      selectedColor: color.withValues(alpha: .18),
+      side: BorderSide(
+        color: selected ? color : Colors.transparent,
+        width: 1.5,
+      ),
+      shape: const StadiumBorder(),
+      labelStyle: TextStyle(
+        color: selected ? color : const Color(0xFF16161A),
+        fontWeight: FontWeight.w700,
+      ),
+      onSelected: (_) {
+        setState(() {
+          if (selected) {
+            selectedIds.remove(sphere.id);
+          } else {
+            selectedIds.add(sphere.id);
+          }
+        });
+      },
+    );
+  }
+}
+=== FILE: C:\Users\HONOR\calendar_app\lib\widgets\settings_tile.dart ===
+import 'package:flutter/material.dart';
+
+class SettingsTile extends StatelessWidget {
+  final IconData icon;
+  final String title;
+  final String value;
+  final VoidCallback onTap;
+
+  const SettingsTile({
+    super.key,
+    required this.icon,
+    required this.title,
+    required this.value,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      borderRadius: BorderRadius.circular(14),
+      onTap: onTap,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 8),
+        child: Row(
+          children: [
+            Icon(icon, size: 22),
+
+            const SizedBox(width: 15),
+
+            Expanded(child: Text(title, style: const TextStyle(fontSize: 18))),
+
+            Text(
+              value,
+              style: TextStyle(color: Colors.grey.shade600, fontSize: 17),
+            ),
+
+            const SizedBox(width: 8),
+
+            const Icon(Icons.chevron_right, color: Colors.grey),
+          ],
+        ),
+      ),
+    );
+  }
+}
+=== FILE: C:\Users\HONOR\calendar_app\lib\widgets\sort_notes_sheet.dart ===
+import 'package:flutter/material.dart';
+
+enum NotesSort { updated, created, title }
+
+class SortNotesSheet extends StatelessWidget {
+  final NotesSort current;
+  final Function(NotesSort) onSelected;
+
+  const SortNotesSheet({
+    super.key,
+    required this.current,
+    required this.onSelected,
+  });
+
+  Widget tile(
+    BuildContext context,
+    NotesSort value,
+    IconData icon,
+    String text,
+  ) {
+    return ListTile(
+      leading: Icon(icon),
+
+      title: Text(text),
+
+      trailing: current == value
+          ? const Icon(Icons.check_circle, color: Colors.indigo)
+          : null,
+
+      onTap: () {
+        onSelected(value);
+        Navigator.pop(context);
+      },
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return SafeArea(
+      child: Padding(
+        padding: const EdgeInsets.only(top: 10, bottom: 25),
+
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+
+          children: [
+            const Text(
+              "РЎРѕСЂС‚РёСЂРѕРІРєР°",
+              style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+            ),
+
+            const SizedBox(height: 15),
+
+            tile(context, NotesSort.updated, Icons.update, "РџРѕ РґР°С‚Рµ РёР·РјРµРЅРµРЅРёСЏ"),
+
+            tile(
+              context,
+              NotesSort.created,
+              Icons.calendar_today,
+              "РџРѕ РґР°С‚Рµ СЃРѕР·РґР°РЅРёСЏ",
+            ),
+
+            tile(context, NotesSort.title, Icons.sort_by_alpha, "РџРѕ РЅР°Р·РІР°РЅРёСЋ"),
+          ],
+        ),
+      ),
+    );
+  }
+}
+=== FILE: C:\Users\HONOR\calendar_app\lib\widgets\spheres_filter.dart ===
+import 'package:flutter/material.dart';
+import '../models/life_sphere.dart';
+
+class SpheresFilter extends StatelessWidget {
+  final List<LifeSphere> spheres;
+  final String? selectedId;
+  final Function(String?) onChanged;
+
+  const SpheresFilter({
+    super.key,
+    required this.spheres,
+    required this.selectedId,
+    required this.onChanged,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      height: 54,
+      child: ListView(
+        scrollDirection: Axis.horizontal,
+        padding: const EdgeInsets.symmetric(horizontal: 18),
+        children: [
+          FilterChip(
+            label: const Text("Р’СЃРµ"),
+            selected: selectedId == null,
+            onSelected: (_) => onChanged(null),
+          ),
+
+          const SizedBox(width: 10),
+
+          ...spheres.map(
+            (sphere) => Padding(
+              padding: const EdgeInsets.only(right: 10),
+              child: FilterChip(
+                avatar: Text(sphere.emoji),
+
+                label: Text(sphere.name),
+
+                selected: selectedId == sphere.id,
+
+                selectedColor: Color(sphere.color).withValues(alpha: .15),
+
+                onSelected: (_) {
+                  if (selectedId == sphere.id) {
+                    onChanged(null);
+                  } else {
+                    onChanged(sphere.id);
+                  }
+                },
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+=== FILE: C:\Users\HONOR\calendar_app\lib\widgets\sphere_chip.dart ===
+import 'package:flutter/material.dart';
+
+class SphereChip extends StatelessWidget {
+  final String emoji;
+  final String title;
+  final Color color;
+
+  const SphereChip({
+    super.key,
+    required this.emoji,
+    required this.title,
+    required this.color,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+      decoration: BoxDecoration(
+        color: color,
+        borderRadius: BorderRadius.circular(30),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(emoji),
+          const SizedBox(width: 5),
+          Text(
+            title,
+            style: const TextStyle(
+              color: Colors.white,
+              fontWeight: FontWeight.w600,
+              fontSize: 12,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+=== FILE: C:\Users\HONOR\calendar_app\lib\widgets\task_list.dart ===
+import 'package:flutter/material.dart';
+import '../models/task.dart';
+import '../screens/task_details_screen.dart';
+
+class TaskList extends StatelessWidget {
+  final List<Task> tasks;
+  final ValueChanged<int> onDelete;
+  final void Function(int, bool?) onChanged;
+  final Color Function(String) categoryColor;
+
+  const TaskList({
+    super.key,
+    required this.tasks,
+    required this.onDelete,
+    required this.onChanged,
+    required this.categoryColor,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final sorted = List<Task>.from(tasks)
+      ..sort((a, b) => (a.time ?? '99:99').compareTo(b.time ?? '99:99'));
+    return SliverList(
+      delegate: SliverChildBuilderDelegate((context, index) {
+        final task = sorted[index];
+        final originalIndex = tasks.indexOf(task);
+        final color = categoryColor(task.category);
+        return Dismissible(
+          key: ObjectKey(task),
+          direction: DismissDirection.endToStart,
+          onDismissed: (_) => onDelete(originalIndex),
+          background: Container(
+            alignment: Alignment.centerRight,
+            padding: const EdgeInsets.only(right: 24),
+            decoration: BoxDecoration(
+              color: Theme.of(context).colorScheme.error,
+              borderRadius: BorderRadius.circular(18),
+            ),
+            child: Icon(
+              Icons.delete_outline,
+              color: Theme.of(context).colorScheme.onError,
+            ),
+          ),
+          child: Card(
+            clipBehavior: Clip.antiAlias,
+            margin: const EdgeInsets.only(bottom: 10),
+            child: InkWell(
+              onTap: () => Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) =>
+                      TaskDetailsScreen(task: task, categoryColor: color),
+                ),
+              ),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(
+                  vertical: 10,
+                  horizontal: 8,
+                ),
+                child: Row(
+                  children: [
+                    Checkbox(
+                      value: task.isCompleted,
+                      shape: const CircleBorder(),
+                      activeColor: color,
+                      onChanged: (value) => onChanged(originalIndex, value),
+                    ),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            task.title,
+                            style: TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w600,
+                              decoration: task.isCompleted
+                                  ? TextDecoration.lineThrough
+                                  : null,
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          Row(
+                            children: [
+                              if (task.time != null) ...[
+                                Icon(
+                                  Icons.access_time,
+                                  size: 14,
+                                  color: Theme.of(
+                                    context,
+                                  ).colorScheme.onSurfaceVariant,
+                                ),
+                                const SizedBox(width: 3),
+                                Text(
+                                  task.time!,
+                                  style: TextStyle(
+                                    color: Theme.of(
+                                      context,
+                                    ).colorScheme.onSurfaceVariant,
+                                  ),
+                                ),
+                              ],
+                              const SizedBox(width: 10),
+                              Container(
+                                width: 7,
+                                height: 7,
+                                decoration: BoxDecoration(
+                                  color: color,
+                                  shape: BoxShape.circle,
+                                ),
+                              ),
+                              const SizedBox(width: 4),
+                              Text(
+                                task.category,
+                                style: TextStyle(
+                                  color: Theme.of(
+                                    context,
+                                  ).colorScheme.onSurfaceVariant,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
+                    if (task.reminder)
+                      const Icon(Icons.notifications_active_outlined, size: 18),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        );
+      }, childCount: sorted.length),
+    );
+  }
+}
+=== FILE: C:\Users\HONOR\calendar_app\lib\widgets\time_picker_sheet.dart ===
+import 'package:flutter/cupertino.dart';
+import 'package:flutter/material.dart';
+
+class TimePickerSheet extends StatefulWidget {
+  final TimeOfDay? initialTime;
+  final ValueChanged<TimeOfDay> onSelected;
+
+  const TimePickerSheet({
+    super.key,
+    this.initialTime,
+    required this.onSelected,
+  });
+
+  @override
+  State<TimePickerSheet> createState() => _TimePickerSheetState();
+}
+
+class _TimePickerSheetState extends State<TimePickerSheet> {
+  static const _cycles = 100;
+  late int _hour;
+  late int _minute;
+  late final FixedExtentScrollController _hourController;
+  late final FixedExtentScrollController _minuteController;
+
+  @override
+  void initState() {
+    super.initState();
+    final time = widget.initialTime ?? TimeOfDay.now();
+    _hour = time.hour == 0 ? 24 : time.hour;
+    _minute = time.minute;
+    _hourController = FixedExtentScrollController(
+      initialItem: 24 * 50 + _hour - 1,
+    );
+    _minuteController = FixedExtentScrollController(
+      initialItem: 60 * 50 + _minute,
+    );
+  }
+
+  @override
+  void dispose() {
+    _hourController.dispose();
+    _minuteController.dispose();
+    super.dispose();
+  }
+
+  Widget _wheel({
+    required int count,
+    required FixedExtentScrollController controller,
+    required ValueChanged<int> onChanged,
+    bool oneBased = false,
+  }) {
+    return Expanded(
+      child: CupertinoPicker.builder(
+        scrollController: controller,
+        itemExtent: 42,
+        selectionOverlay: const CupertinoPickerDefaultSelectionOverlay(),
+        childCount: count * _cycles,
+        onSelectedItemChanged: (index) =>
+            onChanged((index % count) + (oneBased ? 1 : 0)),
+        itemBuilder: (_, index) => Center(
+          child: Text(
+            '${(index % count) + (oneBased ? 1 : 0)}'.padLeft(2, '0'),
+            style: const TextStyle(fontSize: 23),
+          ),
+        ),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return SafeArea(
+      child: SizedBox(
+        height: 340,
+        child: Column(
+          children: [
+            const SizedBox(height: 18),
+            const Text(
+              'Р’С‹Р±РµСЂРёС‚Рµ РІСЂРµРјСЏ',
+              style: TextStyle(fontSize: 20, fontWeight: FontWeight.w700),
+            ),
+            Expanded(
+              child: Row(
+                children: [
+                  _wheel(
+                    count: 24,
+                    oneBased: true,
+                    controller: _hourController,
+                    onChanged: (v) => setState(() => _hour = v),
+                  ),
+                  const Text(
+                    ':',
+                    style: TextStyle(fontSize: 28, fontWeight: FontWeight.w600),
+                  ),
+                  _wheel(
+                    count: 60,
+                    controller: _minuteController,
+                    onChanged: (v) => setState(() => _minute = v),
+                  ),
+                ],
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+              child: SizedBox(
+                width: double.infinity,
+                child: FilledButton(
+                  onPressed: () {
+                    widget.onSelected(
+                      TimeOfDay(hour: _hour % 24, minute: _minute),
+                    );
+                    Navigator.pop(context);
+                  },
+                  child: const Text('Р“РѕС‚РѕРІРѕ'),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}

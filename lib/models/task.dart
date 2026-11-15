@@ -1,4 +1,5 @@
 class Task {
+  String id;
   String title;
   String description;
   bool isCompleted;
@@ -9,6 +10,7 @@ class Task {
   bool reminder;
 
   Task({
+    String? id,
     required this.title,
     this.description = '',
     this.isCompleted = false,
@@ -17,9 +19,10 @@ class Task {
     this.priority = 1,
     this.category = 'Личное',
     this.reminder = false,
-  });
+  }) : id = id ?? 'task_${DateTime.now().microsecondsSinceEpoch}';
 
   factory Task.fromJson(Map<String, dynamic> json) => Task(
+    id: json['id'] as String?,
     title: json['title'] as String,
     description: json['description'] as String? ?? '',
     isCompleted: json['isCompleted'] as bool? ?? false,
@@ -31,6 +34,7 @@ class Task {
   );
 
   Map<String, dynamic> toJson() => {
+    'id': id,
     'title': title,
     'description': description,
     'isCompleted': isCompleted,
