@@ -42,7 +42,7 @@ dependencies:
   intl: ^0.20.2
   shared_preferences: ^2.5.3
   emoji_picker_flutter: ^3.1.0
-  http: calendar-reminders.kuku2004yandex-ru.workers.dev:^1.2.2
+  http: ^1.2.2
 
 dev_dependencies:
   flutter_test:
